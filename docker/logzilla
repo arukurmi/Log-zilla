@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# Get service name from command line argument or current directory
+SERVICE_NAME="$1"
+if [ -z "$SERVICE_NAME" ]; then
+    SERVICE_NAME=$(basename "$(pwd)")
+fi
+
+# Default server details (will be replaced by docker environment)
+SERVER_HOST=${LOGZILLA_HOST:-localhost}
+SERVER_PORT=${LOGZILLA_PORT:-5959}
+
+# Export environment variables for the log processor
+export LOGZILLA_HOST="$SERVER_HOST"
+export LOGZILLA_PORT="$SERVER_PORT"
+
+echo "📡 Connecting to logzilla server on port $SERVER_PORT"
+echo "🏷️  Service: $SERVICE_NAME"
+echo "Sending logs to: http://${SERVER_HOST}:${SERVER_PORT}/api/otel"
+
+# Run the Node.js log processor with service name as argument
+exec node /usr/local/bin/log-processor.js "$SERVICE_NAME" 
