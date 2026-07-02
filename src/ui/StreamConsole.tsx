@@ -221,18 +221,6 @@ const StreamConsole: React.FC = () => {
   };
   const [isPolling, setIsPolling] = useState(true);
   const [showGraph, setShowGraph] = useState(true);
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'timestamp',
-    'service',
-    'level',
-    'message',
-  ]);
-  const availableColumns = [
-    { key: 'timestamp', label: 'when' },
-    { key: 'service', label: 'source' },
-    { key: 'level', label: 'severity' },
-    { key: 'message', label: 'event' },
-  ];
   const [selectedEvent, setSelectedEvent] = useState<StreamEvent | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -894,22 +882,6 @@ const StreamConsole: React.FC = () => {
         extras={
           <>
             <div className="h-4 w-px bg-[var(--zl-border)]"></div>
-            <span className="text-xs text-[var(--zl-muted)]">Columns:</span>
-            {availableColumns.map((column) => (
-              <TogglePill
-                key={column.key}
-                active={selectedColumns.includes(column.key)}
-                label={column.label}
-                onClick={() => {
-                  setSelectedColumns((prev) =>
-                    prev.includes(column.key)
-                      ? prev.filter((c) => c !== column.key)
-                      : [...prev, column.key],
-                  );
-                }}
-              />
-            ))}
-            <div className="h-4 w-px bg-[var(--zl-border)]"></div>
             <span className="text-xs text-[var(--zl-muted)]">View:</span>
             <TogglePill
               active={isPolling}
@@ -946,44 +918,20 @@ const StreamConsole: React.FC = () => {
           <table className="w-full font-mono text-xs">
             <thead className="sticky top-0 bg-[var(--zl-surface)]">
               <tr>
-                {selectedColumns.includes('timestamp') && (
-                  <th className="p-2 text-left text-[11px] font-semibold tracking-wider text-[var(--zl-muted)] uppercase">
-                    When
-                  </th>
-                )}
-                {selectedColumns.includes('service') && (
-                  <th className="p-2 text-left text-[11px] font-semibold tracking-wider text-[var(--zl-muted)] uppercase">
-                    Source
-                  </th>
-                )}
-                {selectedColumns.includes('level') && (
-                  <th className="p-2 text-left text-[11px] font-semibold tracking-wider text-[var(--zl-muted)] uppercase">
-                    Severity
-                  </th>
-                )}
-                {selectedColumns.includes('message') && (
-                  <th className="p-2 text-left text-[11px] font-semibold tracking-wider text-[var(--zl-muted)] uppercase">
-                    Event
-                  </th>
-                )}
+                <th className="p-2 text-left text-[11px] font-semibold tracking-wider text-[var(--zl-muted)] uppercase">
+                  Source
+                </th>
+                <th className="p-2 text-left text-[11px] font-semibold tracking-wider text-[var(--zl-muted)] uppercase">
+                  Severity
+                </th>
+                <th className="p-2 text-left text-[11px] font-semibold tracking-wider text-[var(--zl-muted)] uppercase">
+                  Event
+                </th>
                 <th className="w-8"></th>
               </tr>
             </thead>
             <tbody>
               {visibleEvents.map((event) => {
-                const formatTimestamp = (timestamp: string) => {
-                  try {
-                    const date = new Date(timestamp);
-                    return (
-                      date.toLocaleTimeString() +
-                      '.' +
-                      date.getMilliseconds().toString().padStart(3, '0')
-                    );
-                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                  } catch (e) {
-                    return timestamp;
-                  }
-                };
                 return (
                   <tr
                     key={event.id}
@@ -991,34 +939,21 @@ const StreamConsole: React.FC = () => {
                     className="cursor-pointer border-b border-[var(--zl-border)] text-[var(--zl-text)] transition-colors duration-500 odd:bg-[var(--zl-surface)]/40 hover:bg-[var(--zl-surface-2)] data-[selected=true]:bg-[var(--zl-surface-2)]"
                     onClick={() => openEventDrawer(event)}
                   >
-                    {selectedColumns.includes('timestamp') && (
-                      <td className="p-2 whitespace-nowrap text-[var(--zl-muted)]">
-                        {formatTimestamp(event.timestamp)}
-                      </td>
-                    )}
-                    {selectedColumns.includes('service') && (
-                      <td className="p-2">
-                        <span className="font-semibold text-[var(--zl-key)]">
-                          {event.service || 'unknown'}
-                        </span>
-                      </td>
-                    )}
-                    {selectedColumns.includes('level') && (
-                      <td className="p-2">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${severityBadge(
-                            event.level,
-                          )}`}
-                        >
-                          {(event.level || 'unknown').toLowerCase()}
-                        </span>
-                      </td>
-                    )}
-                    {selectedColumns.includes('message') && (
-                      <td className="max-w-md truncate p-2">
-                        {event.message}
-                      </td>
-                    )}
+                    <td className="p-2">
+                      <span className="font-semibold text-[var(--zl-key)]">
+                        {event.service || 'unknown'}
+                      </span>
+                    </td>
+                    <td className="p-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${severityBadge(
+                          event.level,
+                        )}`}
+                      >
+                        {(event.level || 'unknown').toLowerCase()}
+                      </span>
+                    </td>
+                    <td className="max-w-md truncate p-2">{event.message}</td>
                     <td className="p-2 text-right">
                       <svg
                         className="h-3 w-3 text-[var(--zl-muted)]"

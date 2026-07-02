@@ -69,7 +69,7 @@ Open **http://localhost:5454**.
 - **Search bar** — supports structured queries: `key:"value"` exact match, `key:*value*` contains, `-key:value` exclude, bare `"text"` searches all fields. Hover the ⓘ icon for the cheat sheet.
 - **Severity / Source dropdowns** — one-click narrowing; the lists populate from whatever you've ingested.
 - **Time range** — presets from 15 minutes to 30 days, plus a custom range picker, above the activity graph.
-- **View pills** — `live` (auto-refresh), `follow` (auto-scroll), `pulse` (activity graph), and per-column visibility, all in the filter row.
+- **View pills** — `live` (auto-refresh), `follow` (auto-scroll), `pulse` (activity graph), all in the filter row.
 - **Row click** — opens the event inspector; every attribute can be copied or turned into a filter with one click.
 
 ![Log detail drawer](screenshots/log-details.png)

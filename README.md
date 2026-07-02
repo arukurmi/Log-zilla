@@ -86,7 +86,7 @@ Prefer daylight? The sun/moon switch lives in the top-right:
 
 ### View controls
 
-The pills next to the filters control the console itself: **live** (auto-refresh), **follow** (auto-scroll), **pulse** (activity graph), plus per-column visibility. The **Purge** button in the header deletes stored logs by source and age.
+The pills next to the filters control the console itself: **live** (auto-refresh), **follow** (auto-scroll), **pulse** (activity graph). The **Purge** button in the header deletes stored logs by source and age.
 
 ## Configuration
 
