@@ -1,202 +1,130 @@
 <div align="center">
-<p align="center">
-  <img src="public/favicon.svg" width="140" height="140" alt="Log-zilla logo">
-</p>
+  <img src="public/favicon.svg" width="120" height="120" alt="Log-zilla">
 
-<h1 align="center"><b>LOG-ZILLA</b></h1>
-<h4 align="center" style="color: #666666; font-weight: normal;">The kaiju that eats your localhost logs</h4>
+# LOG-ZILLA
 
-<p align="center">
-  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/docker-ready-blue.svg" alt="Docker"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"></a>
-  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/next.js-15-black.svg" alt="Next.js"></a>
-  <a href="http://makeapullrequest.com"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"></a>
-</p>
+**The kaiju that eats your localhost logs.**
 
-<p align="center">Pipe any process into <code>logzilla</code> and watch every service on your machine stream into one console.</p>
+Run any command through `logzilla` and every service on your machine streams into one searchable console at `localhost:5454`.
+
 </div>
 
-![Log-zilla console (dark mode)](screenshots/dashboard-dark.png)
+---
 
-## Why Log-zilla?
+![Log-zilla console](screenshots/dashboard-dark.png)
 
-Running four microservices locally means four terminal tabs, four scrollback buffers, and zero searchability. Log-zilla swallows all of them: prefix any command with `logzilla` (or pipe into it) and the output lands in a single searchable, filterable, persistent console at `http://localhost:5959`.
+## What it does
 
-## Features
+Working on a few services at once means juggling terminal tabs and losing anything that scrolled past. Log-zilla swallows all of it:
 
-- 🦖 **Zero configuration** — just pipe your logs to `logzilla`
-- 🏷️ **Auto service detection** — service name is taken from the directory you run in
-- 🌗 **Dark & light mode** — toggle from the header, remembered across sessions
-- 🔍 **Structured search** — `key:"value"`, wildcards, negation, free text
-- 📈 **Log volume graph** — spot bursts and gaps at a glance
-- 📊 **Real-time updates** — the console polls as logs arrive
-- 💾 **Persistent storage** — SQLite keeps your history between restarts
-- 🐳 **Docker native** — the whole server runs in one container
+```bash
+cd my-node-service
+logzilla npm start        # prefix any command…
+go run main.go | logzilla # …or pipe into it
+```
 
-## Quick Start
+Each service is tagged with the directory you ran it from, stored in SQLite so history survives restarts, and served up in a console with structured search, severity filters, an activity graph, and dark/light themes.
 
-The fastest way to get started:
+## Getting started
+
+### The short way
 
 ```bash
 ./scripts/quick-start.sh
 ```
 
-This will:
+Builds the Docker image, starts the server on port 5454, installs the `logzilla` command, and prints usage examples. Then open **http://localhost:5454**.
 
-1. Build the Docker image
-2. Start the logzilla server
-3. Set up the `logzilla` command
-4. Show you how to use it
+### The long way
 
-## Manual Setup
-
-If you prefer to set things up manually:
-
-### 1. Build the Image
+**Run the server:**
 
 ```bash
 docker build -f Dockerfile.logzilla -t repo/logzilla .
+docker run -d --name logzilla-server -p 5454:5454 -v ~/.logzilla:/data repo/logzilla
 ```
 
-### 2. Start the Server
-
-```bash
-# Basic setup (port 5959, database at ~/Documents/logzilla.db)
-docker run -d --name logzilla-server -p 5959:5959 -v ~/Documents:/data repo/logzilla
-
-# Custom port and database location
-docker run -d --name logzilla-server -p 8080:8080 -v ~/Documents:/data repo/logzilla --port 8080 --db /data/custom.db
-```
-
-### 3. Set up the logzilla command
+**Install the CLI:**
 
 ```bash
 ./scripts/build-logzilla.sh
 ```
 
-## Usage
-
-Once set up, you can use logzilla with any application:
+## Everyday usage
 
 ```bash
-# Go application
-cd my-go-service
+# prefix any process
+logzilla npm run start:dev
 logzilla go run main.go
-go run main.go | logzilla
-
-# Node.js application
-cd my-node-service
-logzilla npm start
-npm start | logzilla
-
-# Python application
-cd my-python-service
 logzilla python app.py
-python app.py | logzilla
 
-# Any application that outputs logs
-cd any-service
+# or pipe
 ./my-app | logzilla
 ```
 
-### Visit the web interface on http://localhost:5959
+The source name in the console comes from your working directory — running inside `payments-service/` shows up as `payments-service`.
 
-## The Console
+## The console
 
-Click any row to open the detail drawer — every attribute is one click away from becoming a filter, and one click away from your clipboard:
+Click any event to open the inspector — copy an attribute or turn it into a filter with one click:
 
-![Log detail drawer](screenshots/log-details.png)
+![Event inspector](screenshots/log-details.png)
 
-Prefer daylight? Hit the sun/moon toggle in the header:
+Prefer daylight? The sun/moon switch lives in the top-right:
 
-![Log-zilla console (light mode)](screenshots/dashboard-light.png)
+![Light theme](screenshots/dashboard-light.png)
 
-## How It Works
+### Search syntax
 
-1. **Service detection**: the `logzilla` command reads your service name from the current directory
-2. **Dynamic configuration**: it generates a fluent-bit config for that service on the fly
-3. **Ingestion**: fluent-bit ships each line to the Log-zilla server over HTTP
-4. **Console**: the web UI at http://localhost:5959 queries the SQLite-backed event vault
+| Query | Matches |
+|---|---|
+| `key:"value"` | field equals value |
+| `key:*value*` | field contains value |
+| `-key:value` | field does **not** equal value |
+| `"text"` | any field contains text |
+| `"a" "b"` | both terms, any fields |
+
+### View controls
+
+The pills next to the filters control the console itself: **live** (auto-refresh), **follow** (auto-scroll), **pulse** (activity graph), plus per-column visibility. The **Purge** button in the header deletes stored logs by source and age.
 
 ## Configuration
 
-### Environment Variables
-
-- `LOGZILLA_HOST`: Server host (default: localhost)
-- `LOGZILLA_PORT`: Server port (default: 5959)
-- `PORT`: Web interface port (default: 5959)
-- `DB_PATH`: Database file path (default: ~/Documents/logzilla.db)
-
-### Custom Database Location
+| Variable | Default | What it controls |
+|---|---|---|
+| `PORT` | `5454` | console port |
+| `DB_PATH` | `/data/logzilla.db` | SQLite location inside the container |
+| `LOGZILLA_HOST` | `localhost` | where the CLI ships logs |
+| `LOGZILLA_PORT` | `5454` | port the CLI targets |
 
 ```bash
-docker run -d --name logzilla-server -p 5959:5959 \
-  -v /path/to/your/data:/data \
-  repo/logzilla --db /data/logs.db
-```
-
-### Custom Port
-
-```bash
+# custom port + database location
 docker run -d --name logzilla-server -p 8080:8080 \
-  repo/logzilla --port 8080
+  -v /path/to/data:/data \
+  repo/logzilla --port 8080 --db /data/logs.db
 ```
 
-## Management
+## Managing the server
 
 ```bash
-# View server logs
-docker logs logzilla-server
-
-# Stop server
-docker stop logzilla-server
-
-# Start server
-docker start logzilla-server
-
-# Restart server
-docker restart logzilla-server
-
-# Remove server (keeps data if using volumes)
-docker rm logzilla-server
+docker logs logzilla-server      # what is it doing
+docker stop logzilla-server      # pause it
+docker start logzilla-server     # resume (data persists)
+docker rm logzilla-server        # remove (volume data survives)
 ```
 
-## Troubleshooting
+## When something's off
 
-### Server not starting
+- **Console loads but shows offline** — the API can't reach its database. Check `docker logs logzilla-server`; if you see SQLite I/O errors, make sure the `-v` mount points at a plain directory like `~/.logzilla` (macOS privacy-protected folders such as `~/Documents` can break Docker file sharing).
+- **`logzilla: command not found`** — re-run `./scripts/build-logzilla.sh` from this repo.
+- **Logs not arriving** — confirm fluent-bit is installed (`fluent-bit --version`) and the server answers: `curl localhost:5454/api/otel?limit=1`.
 
-```bash
-docker logs logzilla-server
-```
+## Developing
 
-### Can't connect to server
-
-1. Check if container is running: `docker ps`
-2. Check port mapping: `docker port logzilla-server`
-3. Test connection: `curl http://localhost:5959/api/health`
-
-### logzilla command not found
-
-Make sure you ran the setup script or manually created the command as shown above.
-
-## Advanced Usage
-
-### Multiple Services
-
-Each service automatically gets its own configuration based on the directory name:
-
-```bash
-cd payments-service
-go run main.go | logzilla  # Shows as "payments-service"
-
-cd user-service
-python app.py | logzilla   # Shows as "user-service"
-```
-
-### Custom Service Names
-
-You can override the service name by setting the directory name or using a custom approach in your application.
+See [SETUP.md](SETUP.md) for running from source, project layout, and theming. Full install walkthrough in [COMPLETE_SETUP.md](COMPLETE_SETUP.md).
 
 ---
 
-**Need help?** Check the logs with `docker logs logzilla-server` or visit the console at http://localhost:5959
+<div align="center">
+  <sub>MIT licensed · runs on Docker + Next.js · contributions welcome</sub>
+</div>

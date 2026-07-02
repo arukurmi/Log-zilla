@@ -40,7 +40,7 @@ docker rm logzilla-server 2>/dev/null || true
 
 # Start the server
 echo "🚀 Starting logzilla server..."
-docker run -d --name logzilla-server -p 5959:5959 -v ~/Documents:/data repo/logzilla
+docker run -d --name logzilla-server -p 5454:5454 -v ~/.logzilla:/data repo/logzilla
 
 # Wait for server to start
 echo "⏳ Waiting for server to start..."
@@ -53,8 +53,8 @@ echo "🔧 Setting up logzilla command..."
 echo ""
 echo "✅ Log-zilla is ready!"
 echo ""
-echo "🌐 Web interface: http://localhost:5959"
-echo "📊 Database location: ~/Documents/logzilla.db"
+echo "🌐 Web interface: http://localhost:5454"
+echo "📊 Database location: ~/.logzilla/logzilla.db"
 echo ""
 echo "💡 Usage example:"
 echo "   cd your-service-directory"

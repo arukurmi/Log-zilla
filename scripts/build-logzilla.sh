@@ -77,7 +77,7 @@ if [ ! -f "\$FLUENT_CONFIG_DIR/template.conf" ]; then
     Name         http
     Match        *
     Host         localhost
-    Port         5959
+    Port         5454
     URI          /api/otel
     Format       json
     Header       Content-Type application/json
@@ -164,6 +164,6 @@ echo "   logzilla go run main.go"
 echo "   # or"
 echo "   go run main.go | logzilla"
 echo ""
-echo "3. View logs at: http://localhost:5959"
+echo "3. View logs at: http://localhost:5454"
 echo ""
 echo "📝 Note: This requires fluent-bit to be installed on your system"

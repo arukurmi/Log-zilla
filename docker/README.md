@@ -13,11 +13,11 @@ docker build -f Dockerfile.logzilla -t repo/logzilla .
 ### Basic Usage
 
 ```bash
-# Run with default settings (port 5959, db at ~/Documents/logzilla.db)
-docker run -d -p 5959:5959 -v ~/Documents:/data repo/logzilla
+# Run with default settings (port 5454, db at ~/.logzilla/logzilla.db)
+docker run -d -p 5454:5454 -v ~/.logzilla:/data repo/logzilla
 
 # Run with custom port and database location
-docker run -d -p 8080:8080 -v ~/Documents:/data repo/logzilla --port 8080 --db /data/custom.db
+docker run -d -p 8080:8080 -v ~/.logzilla:/data repo/logzilla --port 8080 --db /data/custom.db
 ```
 
 ### Using logzilla command
@@ -30,7 +30,7 @@ cat > /usr/local/bin/logzilla << 'EOF'
 #!/bin/sh
 docker run --rm -i --network host \
   -e LOGZILLA_HOST=localhost \
-  -e LOGZILLA_PORT=5959 \
+  -e LOGZILLA_PORT=5454 \
   -v "$(pwd):/workdir" \
   -w /workdir \
   repo/logzilla logzilla
@@ -60,12 +60,12 @@ npm run start | logzilla
 ## Environment Variables
 
 - `LOGZILLA_HOST`: Host where the logzilla server is running (default: localhost)
-- `LOGZILLA_PORT`: Port where the logzilla server is running (default: 5959)
-- `PORT`: Port for the logzilla web interface (default: 5959)
-- `DB_PATH`: Path to SQLite database file (default: ~/Documents/logzilla.db)
+- `LOGZILLA_PORT`: Port where the logzilla server is running (default: 5454)
+- `PORT`: Port for the logzilla web interface (default: 5454)
+- `DB_PATH`: Path to SQLite database file (default: ~/.logzilla/logzilla.db)
 
 ## Accessing the Web Interface
 
 Once the container is running, access the log viewer at:
 
-- http://localhost:5959 (or your custom port)
+- http://localhost:5454 (or your custom port)

@@ -12,7 +12,7 @@ function parseFluentConfig(configPath) {
     const lines = config.split('\n');
 
     let serverHost = 'localhost';
-    let serverPort = '5959';
+    let serverPort = '5454';
     let serviceName = 'unknown-service';
 
     for (const line of lines) {
@@ -35,7 +35,7 @@ function parseFluentConfig(configPath) {
 
 // Get configuration from command line arguments or environment variables
 let serverHost = process.env.LOGZILLA_HOST || 'localhost';
-let serverPort = process.env.LOGZILLA_PORT || '5959';
+let serverPort = process.env.LOGZILLA_PORT || '5454';
 let serviceName =
   process.argv[2] || process.env.SERVICE_NAME || path.basename(process.cwd());
 

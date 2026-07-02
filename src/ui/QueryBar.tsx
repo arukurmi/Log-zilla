@@ -10,6 +10,8 @@ interface QueryBarProps {
   levels: string[];
   services: string[];
   search?: string;
+  /** Extra controls (column pills, view toggles) rendered in the filter row */
+  extras?: React.ReactNode;
 }
 
 const QueryBar: React.FC<QueryBarProps> = (props) => {
@@ -140,7 +142,9 @@ const QueryBar: React.FC<QueryBarProps> = (props) => {
 
         <div className="flex w-full flex-wrap items-center gap-2">
           <div className="flex items-center">
-            <span className="mr-1 text-xs text-[var(--zl-muted)]">Level:</span>
+            <span className="mr-1 text-xs text-[var(--zl-muted)]">
+              Severity:
+            </span>
             <select
               className="rounded border border-[var(--zl-border)] bg-[var(--zl-surface)] px-2 py-1 text-xs text-[var(--zl-text)] focus:ring-1 focus:ring-[var(--zl-accent)] focus:outline-none"
               value={level}
@@ -157,7 +161,7 @@ const QueryBar: React.FC<QueryBarProps> = (props) => {
 
           <div className="flex items-center">
             <span className="mr-1 text-xs text-[var(--zl-muted)]">
-              Service:
+              Source:
             </span>
             <select
               className="rounded border border-[var(--zl-border)] bg-[var(--zl-surface)] px-2 py-1 text-xs text-[var(--zl-text)] focus:ring-1 focus:ring-[var(--zl-accent)] focus:outline-none"
@@ -178,9 +182,11 @@ const QueryBar: React.FC<QueryBarProps> = (props) => {
               className="rounded border border-[var(--zl-border)] bg-[var(--zl-surface-2)] px-2 py-1 text-xs text-[var(--zl-text)] transition-colors hover:bg-[var(--zl-border)] focus:ring-1 focus:ring-[var(--zl-accent)] focus:outline-none"
               onClick={clearFilters}
             >
-              Clear
+              Reset
             </button>
           </div>
+
+          {props.extras}
         </div>
       </div>
     </div>

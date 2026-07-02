@@ -22,7 +22,7 @@ Everything you need to go from a fresh clone to watching all of your local servi
 ./scripts/quick-start.sh
 ```
 
-This builds the Docker image, starts the server container on port 5959, installs the `logzilla` command to `/usr/local/bin`, and prints usage examples. When it finishes, open **http://localhost:5959**.
+This builds the Docker image, starts the server container on port 5454, installs the `logzilla` command to `/usr/local/bin`, and prints usage examples. When it finishes, open **http://localhost:5454**.
 
 ## 3. Manual setup (what the script does)
 
@@ -30,10 +30,10 @@ This builds the Docker image, starts the server container on port 5959, installs
 
 ```bash
 docker build -f Dockerfile.logzilla -t repo/logzilla .
-docker run -d --name logzilla-server -p 5959:5959 -v ~/Documents:/data repo/logzilla
+docker run -d --name logzilla-server -p 5454:5454 -v ~/.logzilla:/data repo/logzilla
 ```
 
-The SQLite database lands at `~/Documents/logzilla.db`, so your history survives container restarts.
+The SQLite database lands at `~/.logzilla/logzilla.db`, so your history survives container restarts.
 
 ### Install the logzilla command
 
@@ -64,30 +64,30 @@ The service name in the console is the directory name — `cd payments-service &
 
 ## 5. Using the console
 
-Open **http://localhost:5959**.
+Open **http://localhost:5454**.
 
 - **Search bar** — supports structured queries: `key:"value"` exact match, `key:*value*` contains, `-key:value` exclude, bare `"text"` searches all fields. Hover the ⓘ icon for the cheat sheet.
-- **Level / Service dropdowns** — one-click narrowing; the lists populate from whatever you've ingested.
-- **Time range** — presets from 15 minutes to 30 days, plus a custom range picker.
-- **Log volume graph** — toggle with the "Show Graph" checkbox.
-- **Row click** — opens the detail drawer; every attribute can be copied or turned into a filter with one click.
+- **Severity / Source dropdowns** — one-click narrowing; the lists populate from whatever you've ingested.
+- **Time range** — presets from 15 minutes to 30 days, plus a custom range picker, above the activity graph.
+- **View pills** — `live` (auto-refresh), `follow` (auto-scroll), `pulse` (activity graph), and per-column visibility, all in the filter row.
+- **Row click** — opens the event inspector; every attribute can be copied or turned into a filter with one click.
 
 ![Log detail drawer](screenshots/log-details.png)
 
-- **Dark / light mode** — the sun/moon button in the header. Your choice is remembered in the browser.
+- **Dark / light mode** — the sun/moon switch in the header. Your choice is remembered in the browser.
 
 ![Log-zilla console (light mode)](screenshots/dashboard-light.png)
 
-- **Clear** — the red button purges logs by service and/or age (older than 7/14/30 days, or everything).
+- **Purge** — the red button in the header deletes stored logs by source and/or age (older than 7/14/30 days, or everything).
 
 ## 6. Configuration reference
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `PORT` | `5959` | Console port |
-| `DB_PATH` | `~/Documents/logzilla.db` | SQLite file location |
+| `PORT` | `5454` | Console port |
+| `DB_PATH` | `~/.logzilla/logzilla.db` | SQLite file location |
 | `LOGZILLA_HOST` | `localhost` | Where the `logzilla` command sends logs |
-| `LOGZILLA_PORT` | `5959` | Port the `logzilla` command targets |
+| `LOGZILLA_PORT` | `5454` | Port the `logzilla` command targets |
 
 Custom port and database:
 
@@ -113,6 +113,6 @@ docker rm logzilla-server        # remove (volume data survives)
 
 **`logzilla: command not found`** — re-run `./scripts/build-logzilla.sh`; it must complete the sudo step.
 
-**Logs don't appear** — confirm fluent-bit is installed (`fluent-bit --version`) and that the server answers: `curl http://localhost:5959/api/otel?limit=1`.
+**Logs don't appear** — confirm fluent-bit is installed (`fluent-bit --version`) and that the server answers: `curl http://localhost:5454/api/otel?limit=1`.
 
 **Port already in use** — start the container with a different `-p` mapping and `--port` flag, and set `LOGZILLA_PORT` accordingly before using the `logzilla` command.

@@ -5,7 +5,7 @@ services:
   logzilla:
     build: .
     ports:
-      - '5959:5959'
+      - '5454:5454'
     environment:
       - NODE_ENV=development
     volumes:

@@ -27,7 +27,7 @@ async function sendTestLog(service, level, message) {
   };
 
   try {
-    const response = await fetch('http://localhost:5959/api/otel', {
+    const response = await fetch('http://localhost:5454/api/otel', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -76,7 +76,7 @@ async function runTests() {
   };
 
   try {
-    const response = await fetch('http://localhost:5959/api/otel', {
+    const response = await fetch('http://localhost:5454/api/otel', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -102,7 +102,7 @@ async function runTests() {
   };
 
   try {
-    const response = await fetch('http://localhost:5959/api/otel', {
+    const response = await fetch('http://localhost:5454/api/otel', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -123,7 +123,7 @@ async function runTests() {
 
   console.log('\n✅ All tests completed!');
   console.log(
-    '📊 Check your application at http://localhost:5959 to see the logs with service names',
+    '📊 Check your application at http://localhost:5454 to see the logs with service names',
   );
 }
 

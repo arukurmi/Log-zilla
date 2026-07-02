@@ -6,8 +6,8 @@ import ZillaMark from './ZillaMark';
 import { useTheme } from './ThemeProvider';
 import { StreamEvent } from '@/core/eventBuffer';
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -16,13 +16,14 @@ import {
 } from 'recharts';
 import { DatePicker, ConfigProvider, theme, Modal } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
-import { FilterIcon, Copy, Check, Sun, Moon } from 'lucide-react';
+import { FilterIcon, Copy, Check, Sun, Moon, Trash2 } from 'lucide-react';
 
 // Per-theme colors for the pieces that can't read CSS variables
 // (Ant Design tokens and recharts props need literal values)
 const PALETTE = {
   dark: {
     accent: '#8b5cf6',
+    accentSoft: 'rgba(139, 92, 246, 0.35)',
     key: '#38bdf8',
     value: '#c4b5fd',
     surface: '#151827',
@@ -33,6 +34,7 @@ const PALETTE = {
   },
   light: {
     accent: '#6d28d9',
+    accentSoft: 'rgba(109, 40, 217, 0.25)',
     key: '#0284c7',
     value: '#6d28d9',
     surface: '#ffffff',
@@ -42,6 +44,45 @@ const PALETTE = {
     grid: '#d9dcea',
   },
 };
+
+// Severity badge styling per level
+const severityBadge = (level?: string) => {
+  switch ((level || '').toLowerCase()) {
+    case 'error':
+      return 'bg-red-500/15 text-red-500';
+    case 'warn':
+    case 'warning':
+      return 'bg-amber-500/15 text-amber-500';
+    case 'info':
+      return 'bg-sky-500/15 text-sky-500';
+    case 'debug':
+      return 'bg-violet-500/15 text-violet-400';
+    default:
+      return 'bg-gray-500/15 text-gray-400';
+  }
+};
+
+// Small on/off pill used for the view toggles
+const TogglePill = ({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) => (
+  <button
+    onClick={onClick}
+    className={`rounded-full px-2.5 py-0.5 text-xs transition-colors hover:cursor-pointer ${
+      active
+        ? 'bg-[var(--zl-accent)] text-white'
+        : 'border border-[var(--zl-border)] bg-[var(--zl-surface)] text-[var(--zl-muted)] hover:text-[var(--zl-text)]'
+    }`}
+  >
+    {label}
+  </button>
+);
 
 const StreamConsole: React.FC = () => {
   const { mode, toggle } = useTheme();
@@ -186,7 +227,12 @@ const StreamConsole: React.FC = () => {
     'level',
     'message',
   ]);
-  const availableColumns = ['timestamp', 'service', 'level', 'message'];
+  const availableColumns = [
+    { key: 'timestamp', label: 'when' },
+    { key: 'service', label: 'source' },
+    { key: 'level', label: 'severity' },
+    { key: 'message', label: 'event' },
+  ];
   const [selectedEvent, setSelectedEvent] = useState<StreamEvent | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -534,21 +580,82 @@ const StreamConsole: React.FC = () => {
 
   return (
     <div className="flex h-screen flex-col bg-[var(--zl-bg)] font-sans text-[var(--zl-text)]">
-      <header className="flex items-center justify-between border-b border-[var(--zl-border)] bg-[var(--zl-bg)] p-2">
+      {/* ---- Top bar: identity left, housekeeping right ---- */}
+      <header className="flex items-center justify-between border-b border-[var(--zl-border)] bg-[var(--zl-surface)] px-3 py-2">
         <div className="flex items-center gap-2">
           <ZillaMark size={26} />
-          <h1 className="text-lg font-bold tracking-wide text-[var(--zl-accent)]">
+          <h1 className="text-lg font-bold tracking-widest text-[var(--zl-accent)]">
             LOG-ZILLA
           </h1>
+          <span className="mt-0.5 hidden text-xs text-[var(--zl-muted)] sm:inline">
+            every process, one stream
+          </span>
         </div>
-        <div className="flex items-center space-x-3">
-          <div className="ml-4 text-xs text-[var(--zl-muted)]">
-            DB Size:{' '}
-            {vaultSize ? (vaultSize / 1024 / 1024).toFixed(2) + ' MB' : '...'}
+        <div className="flex items-center gap-3">
+          <span className="rounded-full border border-[var(--zl-border)] px-2.5 py-0.5 text-xs text-[var(--zl-muted)]">
+            vault{' '}
+            {vaultSize ? (vaultSize / 1024 / 1024).toFixed(2) + ' MB' : '—'}
+          </span>
+
+          {/* sun / moon segmented theme switch */}
+          <div className="flex items-center overflow-hidden rounded-full border border-[var(--zl-border)]">
+            <button
+              onClick={() => mode !== 'light' && toggle()}
+              className={`px-2 py-1 transition-colors hover:cursor-pointer ${
+                mode === 'light'
+                  ? 'bg-[var(--zl-accent)] text-white'
+                  : 'text-[var(--zl-muted)]'
+              }`}
+              title="Light theme"
+            >
+              <Sun size={13} />
+            </button>
+            <button
+              onClick={() => mode !== 'dark' && toggle()}
+              className={`px-2 py-1 transition-colors hover:cursor-pointer ${
+                mode === 'dark'
+                  ? 'bg-[var(--zl-accent)] text-white'
+                  : 'text-[var(--zl-muted)]'
+              }`}
+              title="Dark theme"
+            >
+              <Moon size={13} />
+            </button>
+          </div>
+
+          <button
+            onClick={showPurgeModal}
+            className="flex items-center gap-1 rounded-full border border-[var(--zl-danger)] px-2.5 py-1 text-xs text-[var(--zl-danger)] transition-colors hover:cursor-pointer hover:bg-[var(--zl-danger)] hover:text-white"
+            title="Delete stored logs by source and age"
+          >
+            <Trash2 size={12} />
+            Purge
+          </button>
+        </div>
+      </header>
+
+      {/* ---- Activity strip: status + time window + pulse graph ---- */}
+      <section className="border-b border-[var(--zl-border)] bg-[var(--zl-bg)]">
+        <div className="flex items-center justify-between px-3 pt-2">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              {isConnected && (
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--zl-ok)] opacity-60"></span>
+              )}
+              <span
+                className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                  isConnected ? 'bg-[var(--zl-ok)]' : 'bg-[var(--zl-danger)]'
+                }`}
+                title={isConnected ? 'Receiving data' : 'Server unreachable'}
+              ></span>
+            </span>
+            <span className="text-xs font-semibold tracking-wider text-[var(--zl-muted)] uppercase">
+              Activity
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <select
-              className="min-w-[140px] rounded border border-[var(--zl-border)] bg-[var(--zl-surface)] px-3 py-1.5 text-sm text-[var(--zl-text)] focus:ring-1 focus:ring-[var(--zl-accent)] focus:outline-none"
+              className="min-w-[140px] rounded-full border border-[var(--zl-border)] bg-[var(--zl-surface)] px-3 py-1 text-xs text-[var(--zl-text)] focus:ring-1 focus:ring-[var(--zl-accent)] focus:outline-none"
               value={dateRange}
               onChange={handleDateRangeChange}
             >
@@ -614,77 +721,12 @@ const StreamConsole: React.FC = () => {
               </ConfigProvider>
             )}
           </div>
-
-          <div className="h-4 w-px bg-[var(--zl-border)]"></div>
-
-          <div className="flex items-center">
-            <span
-              className={`mr-1 h-2 w-2 rounded-full ${
-                isConnected ? 'bg-[var(--zl-ok)]' : 'bg-[var(--zl-danger)]'
-              }`}
-            ></span>
-            <span className="text-xs text-[var(--zl-muted)]">
-              {isConnected ? 'Connected' : 'Disconnected'}
-            </span>
-          </div>
-          <div className="flex items-center text-xs">
-            <input
-              type="checkbox"
-              id="autoScroll"
-              checked={autoScroll}
-              onChange={() => setAutoScroll(!autoScroll)}
-              className="mr-1 h-3 w-3 accent-[var(--zl-accent)]"
-            />
-            <label htmlFor="autoScroll" className="text-[var(--zl-muted)]">
-              Auto-scroll
-            </label>
-          </div>
-          <div className="flex items-center text-xs">
-            <input
-              type="checkbox"
-              id="polling"
-              checked={isPolling}
-              onChange={() => setIsPolling(!isPolling)}
-              className="mr-1 h-3 w-3 accent-[var(--zl-accent)]"
-            />
-            <label htmlFor="polling" className="text-[var(--zl-muted)]">
-              Auto-refresh
-            </label>
-          </div>
-          <div className="flex items-center text-xs">
-            <input
-              type="checkbox"
-              id="showGraph"
-              checked={showGraph}
-              onChange={() => setShowGraph(!showGraph)}
-              className="mr-1 h-3 w-3 accent-[var(--zl-accent)]"
-            />
-            <label htmlFor="showGraph" className="text-[var(--zl-muted)]">
-              Show Graph
-            </label>
-          </div>
-          <button
-            onClick={toggle}
-            className="rounded border border-[var(--zl-border)] bg-[var(--zl-surface)] p-1.5 text-[var(--zl-muted)] transition-colors hover:cursor-pointer hover:text-[var(--zl-accent)]"
-            title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {mode === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
-          <button
-            onClick={showPurgeModal}
-            className="rounded bg-[var(--zl-danger)] px-2 py-1 text-xs text-white transition-colors hover:cursor-pointer hover:bg-[var(--zl-danger-strong)]"
-          >
-            Clear
-          </button>
         </div>
-      </header>
 
-      {showGraph && (
-        <div className="border-b border-[var(--zl-border)] bg-[var(--zl-bg)] p-2">
-          <div className="mb-1 text-xs text-[var(--zl-muted)]">Log Volume</div>
-          <div className="h-48 overflow-hidden">
+        {showGraph && (
+          <div className="h-40 overflow-hidden px-1 pb-1">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
+              <AreaChart
                 data={(() => {
                   const eventsToGraph =
                     visibleEvents.length > 0 ? visibleEvents : [];
@@ -783,79 +825,121 @@ const StreamConsole: React.FC = () => {
                       };
                     });
                 })()}
-                margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+                <defs>
+                  <linearGradient id="pulseFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="0%"
+                      stopColor={colors.accent}
+                      stopOpacity={0.45}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={colors.key}
+                      stopOpacity={0.02}
+                    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="2 6"
+                  stroke={colors.grid}
+                  vertical={false}
+                />
                 <XAxis
                   dataKey="time"
                   stroke={colors.axis}
                   tick={{ fill: colors.axis, fontSize: 10 }}
-                  axisLine={{ stroke: colors.grid }}
+                  axisLine={false}
+                  tickLine={false}
                 />
                 <YAxis
                   stroke={colors.axis}
                   tick={{ fill: colors.axis, fontSize: 10 }}
-                  axisLine={{ stroke: colors.grid }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={32}
+                  allowDecimals={false}
                 />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: colors.surface,
-                    border: 'none',
-                    borderRadius: '3px',
-                    boxShadow: '0 0 10px rgba(0,0,0,0.5)',
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
                   }}
                   labelStyle={{ color: colors.text, fontWeight: 'bold' }}
-                  itemStyle={{ color: colors.text }}
+                  itemStyle={{ color: colors.accent }}
                 />
-                <Line
-                  type="monotone"
+                <Area
+                  type="step"
                   dataKey="count"
                   stroke={colors.accent}
-                  dot={false}
                   strokeWidth={2}
+                  fill="url(#pulseFill)"
+                  activeDot={{ r: 4, fill: colors.key, strokeWidth: 0 }}
                 />
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
-      )}
+        )}
+      </section>
 
+      {/* ---- Query bar with filters and view toggles ---- */}
       <QueryBar
         onFilterChange={handleFilterChange}
         levels={levels}
         services={services}
         search={filters.search}
+        extras={
+          <>
+            <div className="h-4 w-px bg-[var(--zl-border)]"></div>
+            <span className="text-xs text-[var(--zl-muted)]">Columns:</span>
+            {availableColumns.map((column) => (
+              <TogglePill
+                key={column.key}
+                active={selectedColumns.includes(column.key)}
+                label={column.label}
+                onClick={() => {
+                  setSelectedColumns((prev) =>
+                    prev.includes(column.key)
+                      ? prev.filter((c) => c !== column.key)
+                      : [...prev, column.key],
+                  );
+                }}
+              />
+            ))}
+            <div className="h-4 w-px bg-[var(--zl-border)]"></div>
+            <span className="text-xs text-[var(--zl-muted)]">View:</span>
+            <TogglePill
+              active={isPolling}
+              label="live"
+              onClick={() => setIsPolling(!isPolling)}
+            />
+            <TogglePill
+              active={autoScroll}
+              label="follow"
+              onClick={() => setAutoScroll(!autoScroll)}
+            />
+            <TogglePill
+              active={showGraph}
+              label="pulse"
+              onClick={() => setShowGraph(!showGraph)}
+            />
+          </>
+        }
       />
 
-      <div className="flex flex-wrap gap-2 border-b border-[var(--zl-border)] bg-[var(--zl-bg)] p-2">
-        <div className="text-xs text-[var(--zl-muted)]">Columns:</div>
-        {availableColumns.map((column) => (
-          <div key={column} className="flex items-center text-xs">
-            <input
-              type="checkbox"
-              id={`col-${column}`}
-              checked={selectedColumns.includes(column)}
-              onChange={() => {
-                setSelectedColumns((prev) =>
-                  prev.includes(column)
-                    ? prev.filter((c) => c !== column)
-                    : [...prev, column],
-                );
-              }}
-              className="mr-1 h-3 w-3 accent-[var(--zl-accent)]"
-            />
-            <label htmlFor={`col-${column}`} className="text-[var(--zl-muted)]">
-              {column}
-            </label>
-          </div>
-        ))}
-      </div>
-
+      {/* ---- Event stream ---- */}
       <div className="flex-grow overflow-auto">
         {visibleEvents.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-[var(--zl-muted)]">
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-[var(--zl-muted)]">
+            <div className="opacity-40">
+              <ZillaMark size={56} />
+            </div>
             <p className="text-sm">
-              No logs yet. Pipe a process into logzilla to wake the beast.
+              Nothing in this time window. Pipe a process into logzilla to
+              wake the beast.
             </p>
           </div>
         ) : (
@@ -863,23 +947,23 @@ const StreamConsole: React.FC = () => {
             <thead className="sticky top-0 bg-[var(--zl-surface)]">
               <tr>
                 {selectedColumns.includes('timestamp') && (
-                  <th className="p-2 text-left font-medium text-[var(--zl-muted)]">
-                    Time
+                  <th className="p-2 text-left text-[11px] font-semibold tracking-wider text-[var(--zl-muted)] uppercase">
+                    When
                   </th>
                 )}
                 {selectedColumns.includes('service') && (
-                  <th className="p-2 text-left font-medium text-[var(--zl-muted)]">
-                    Service
+                  <th className="p-2 text-left text-[11px] font-semibold tracking-wider text-[var(--zl-muted)] uppercase">
+                    Source
                   </th>
                 )}
                 {selectedColumns.includes('level') && (
-                  <th className="p-2 text-left font-medium text-[var(--zl-muted)]">
-                    Level
+                  <th className="p-2 text-left text-[11px] font-semibold tracking-wider text-[var(--zl-muted)] uppercase">
+                    Severity
                   </th>
                 )}
                 {selectedColumns.includes('message') && (
-                  <th className="p-2 text-left font-medium text-[var(--zl-muted)]">
-                    Message
+                  <th className="p-2 text-left text-[11px] font-semibold tracking-wider text-[var(--zl-muted)] uppercase">
+                    Event
                   </th>
                 )}
                 <th className="w-8"></th>
@@ -900,51 +984,34 @@ const StreamConsole: React.FC = () => {
                     return timestamp;
                   }
                 };
-                const getLevelColor = (level?: string) => {
-                  if (!level) return 'bg-gray-500';
-                  switch (level.toLowerCase()) {
-                    case 'error':
-                      return 'bg-red-500';
-                    case 'warn':
-                    case 'warning':
-                      return 'bg-yellow-500';
-                    case 'info':
-                      return 'bg-sky-500';
-                    case 'debug':
-                      return 'bg-violet-500';
-                    default:
-                      return 'bg-gray-500';
-                  }
-                };
                 return (
                   <tr
                     key={event.id}
                     data-selected={selectedEvent?.id === event.id}
-                    className="cursor-pointer border-b border-[var(--zl-border)] text-[var(--zl-text)] transition-colors duration-500 hover:bg-[var(--zl-surface)] data-[selected=true]:bg-[var(--zl-surface-2)]"
+                    className="cursor-pointer border-b border-[var(--zl-border)] text-[var(--zl-text)] transition-colors duration-500 odd:bg-[var(--zl-surface)]/40 hover:bg-[var(--zl-surface-2)] data-[selected=true]:bg-[var(--zl-surface-2)]"
                     onClick={() => openEventDrawer(event)}
                   >
                     {selectedColumns.includes('timestamp') && (
-                      <td className="p-2 whitespace-nowrap">
+                      <td className="p-2 whitespace-nowrap text-[var(--zl-muted)]">
                         {formatTimestamp(event.timestamp)}
                       </td>
                     )}
                     {selectedColumns.includes('service') && (
                       <td className="p-2">
-                        <span className="rounded bg-[var(--zl-surface-2)] px-2 py-0.5 text-[var(--zl-text)]">
+                        <span className="font-semibold text-[var(--zl-key)]">
                           {event.service || 'unknown'}
                         </span>
                       </td>
                     )}
                     {selectedColumns.includes('level') && (
                       <td className="p-2">
-                        <div className="flex items-center">
-                          <div
-                            className={`mr-1 h-2 w-2 rounded-full ${getLevelColor(
-                              event.level,
-                            )}`}
-                          ></div>
-                          <span>{event.level}</span>
-                        </div>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${severityBadge(
+                            event.level,
+                          )}`}
+                        >
+                          {(event.level || 'unknown').toLowerCase()}
+                        </span>
                       </td>
                     )}
                     {selectedColumns.includes('message') && (
@@ -976,15 +1043,16 @@ const StreamConsole: React.FC = () => {
         <div ref={streamEndRef} />
       </div>
 
-      <footer className="border-t border-[var(--zl-border)] bg-[var(--zl-bg)] p-2 text-center text-xs text-[var(--zl-muted)]">
-        <p>
-          Displaying {visibleEvents.length} of {events.length} logs
-        </p>
+      <footer className="flex items-center justify-between border-t border-[var(--zl-border)] bg-[var(--zl-surface)] px-3 py-1.5 text-xs text-[var(--zl-muted)]">
+        <span>
+          {visibleEvents.length} of {events.length} events in window
+        </span>
+        <span className="tracking-widest">LOG-ZILLA</span>
       </footer>
 
       <ConfigProvider theme={antdTheme}>
         <Modal
-          title="Clear Logs"
+          title="Purge stored logs"
           open={isPurgeModalVisible}
           onOk={handlePurgeOk}
           onCancel={handlePurgeCancel}
@@ -1001,21 +1069,24 @@ const StreamConsole: React.FC = () => {
               onClick={handlePurgeOk}
               className="rounded bg-[var(--zl-danger)] px-3 py-1.5 text-sm text-white transition-colors hover:cursor-pointer hover:bg-[var(--zl-danger-strong)]"
             >
-              Clear
+              Purge
             </button>,
           ]}
         >
           <div className="space-y-4">
+            <p className="text-xs text-[var(--zl-muted)]">
+              Deletes matching logs from the database. This cannot be undone.
+            </p>
             <div>
               <label className="block text-sm font-medium text-[var(--zl-muted)]">
-                Service
+                Source
               </label>
               <select
                 value={purgeService}
                 onChange={(e) => setPurgeService(e.target.value)}
                 className="mt-1 block w-full rounded border border-[var(--zl-border)] bg-[var(--zl-surface)] px-3 py-1.5 text-sm text-[var(--zl-text)] focus:ring-1 focus:ring-[var(--zl-accent)] focus:outline-none"
               >
-                <option value="">All Services</option>
+                <option value="">All sources</option>
                 {services.map((service) => (
                   <option key={service} value={service}>
                     {service}
@@ -1025,7 +1096,7 @@ const StreamConsole: React.FC = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-[var(--zl-muted)]">
-                Timeframe
+                Age
               </label>
               <select
                 value={purgeTimeframe}
@@ -1035,7 +1106,7 @@ const StreamConsole: React.FC = () => {
                 <option value="7d">Older than 7 days</option>
                 <option value="14d">Older than 14 days</option>
                 <option value="30d">Older than 30 days</option>
-                <option value="all">All time</option>
+                <option value="all">Everything</option>
               </select>
             </div>
           </div>
@@ -1049,7 +1120,7 @@ const StreamConsole: React.FC = () => {
           <>
             <div className="sticky top-0 flex items-center justify-between border-b border-[var(--zl-border)] bg-[var(--zl-surface)] p-3">
               <h3 className="text-sm font-semibold text-[var(--zl-accent)]">
-                Log Details
+                Event Inspector
               </h3>
               <button
                 onClick={closeDrawer}
@@ -1079,7 +1150,7 @@ const StreamConsole: React.FC = () => {
                 </div>
               </div>
               <div>
-                <div className="text-xs text-[var(--zl-muted)]">Message</div>
+                <div className="text-xs text-[var(--zl-muted)]">Event</div>
                 <div className="text-sm break-words whitespace-pre-wrap text-[var(--zl-text)]">
                   {selectedEvent.message}
                 </div>
@@ -1098,7 +1169,7 @@ const StreamConsole: React.FC = () => {
                         : 'bg-[var(--zl-surface-2)] text-[var(--zl-muted)]'
                     }`}
                   >
-                    Formatted
+                    Flattened
                   </button>
                   <button
                     onClick={() => setIsFormatted(false)}
@@ -1108,7 +1179,7 @@ const StreamConsole: React.FC = () => {
                         : 'bg-[var(--zl-surface-2)] text-[var(--zl-muted)]'
                     }`}
                   >
-                    Unformatted
+                    Raw
                   </button>
                 </div>
               </div>

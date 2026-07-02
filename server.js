@@ -16,7 +16,7 @@ app
 
     // Start the server without trying to initialize Socket.IO
     // We'll handle Socket.IO directly in the Next.js app
-    const port = process.env.PORT || 5959;
+    const port = process.env.PORT || 5454;
     server.listen(port, (err) => {
       if (err) throw err;
       console.log(`> Ready on http://localhost:${port}`);

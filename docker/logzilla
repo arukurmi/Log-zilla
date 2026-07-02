@@ -8,7 +8,7 @@ fi
 
 # Default server details (will be replaced by docker environment)
 SERVER_HOST=${LOGZILLA_HOST:-localhost}
-SERVER_PORT=${LOGZILLA_PORT:-5959}
+SERVER_PORT=${LOGZILLA_PORT:-5454}
 
 # Export environment variables for the log processor
 export LOGZILLA_HOST="$SERVER_HOST"

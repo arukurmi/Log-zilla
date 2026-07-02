@@ -5,7 +5,7 @@ if [ "$1" = "log-processor" ] && [ -n "$2" ]; then
     SERVICE_NAME="$2"
     
     echo "🔧 Starting fluent-bit compatible log processor for service: $SERVICE_NAME"
-    echo "📡 Forwarding to: ${LOGZILLA_HOST:-localhost}:${LOGZILLA_PORT:-5959}"
+    echo "📡 Forwarding to: ${LOGZILLA_HOST:-localhost}:${LOGZILLA_PORT:-5454}"
     
     # Execute the Node.js log processor that behaves like fluent-bit
     exec node /usr/local/bin/log-processor.js "$SERVICE_NAME"
@@ -17,8 +17,8 @@ if [ $# -gt 0 ] && [ "$1" != "-p" ] && [ "$1" != "--port" ] && [ "$1" != "--db" 
 fi
 
 # Default values for server mode
-PORT=${PORT:-5959}
-DB_PATH=${DB_PATH:-~/Documents/logzilla.db}
+PORT=${PORT:-5454}
+DB_PATH=${DB_PATH:-~/.logzilla/logzilla.db}
 
 # Parse command line arguments for server mode
 while [[ $# -gt 0 ]]; do

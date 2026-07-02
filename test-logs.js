@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
 
 // Configuration
-const API_ENDPOINT = 'http://localhost:5959/api/otel';
+const API_ENDPOINT = 'http://localhost:5454/api/otel';
 const LOG_INTERVAL_MS = 1000; // 1 second between logs
 const SERVICES = [
   'api-gateway',

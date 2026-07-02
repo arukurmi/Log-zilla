@@ -15,7 +15,7 @@ npm install
 npm run dev
 ```
 
-The console starts on http://localhost:5959. The SQLite database is created as `logs.db` in the project root (override with `DB_PATH`).
+The console starts on http://localhost:5454. The SQLite database is created as `logs.db` in the project root (override with `DB_PATH`).
 
 ## Project layout
 
@@ -44,7 +44,7 @@ scripts/          quick-start.sh and build-logzilla.sh
 With the dev server running:
 
 ```bash
-curl -X POST http://localhost:5959/api/otel \
+curl -X POST http://localhost:5454/api/otel \
   -H 'Content-Type: application/json' \
   -H 'service.name: my-service' \
   -d '{"level":"info","message":"hello from curl"}'
@@ -74,4 +74,4 @@ npm run format     # prettier
 docker build -f Dockerfile.logzilla -t repo/logzilla .
 ```
 
-The image builds the Next.js app, bundles the fluent-bit configs, and exposes port 5959. See [docker/README.md](docker/README.md) for runtime options.
+The image builds the Next.js app, bundles the fluent-bit configs, and exposes port 5454. See [docker/README.md](docker/README.md) for runtime options.
