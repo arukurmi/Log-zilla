@@ -1,70 +1,118 @@
-# Complete GitHub Setup - Step by Step
+<p align="center">
+  <img src="public/favicon.svg" width="96" height="96" alt="Log-zilla logo">
+</p>
 
-## Step 1: Create Repository on GitHub
+# Log-zilla — Complete Setup Guide
 
-1. Go to: **https://github.com/new**
-2. Fill in:
-   - **Repository name:** `Log-zilla`
-   - **Description:** "Beautiful log monitoring for localhost - New Relic alternative"
-   - **Visibility:** Public or Private (your choice)
-   - **⚠️ IMPORTANT:** Do NOT check any boxes (no README, no .gitignore, no license)
-3. Click **"Create repository"**
+Everything you need to go from a fresh clone to watching all of your local services stream into one console.
 
-## Step 2: Set Up Remote (Run in Terminal)
+![Log-zilla console (dark mode)](screenshots/dashboard-dark.png)
 
-After creating the repository, run these commands:
+## 1. Prerequisites
 
-```bash
-cd /Users/aryanshkurmi/code/Log-zilla
+| Tool | Why | Install |
+|---|---|---|
+| Docker | Runs the Log-zilla server | https://docs.docker.com/get-docker/ |
+| Homebrew (macOS) | Installs fluent-bit | https://brew.sh |
+| fluent-bit | Ships your process output to the server | `brew install fluent-bit` (the setup scripts do this for you) |
 
-# Remove old remote if it exists
-git remote remove origin 2>/dev/null || true
-
-# Add the new remote
-git remote add origin https://github.com/arukurmi/Log-zilla.git
-
-# Verify remote
-git remote -v
-```
-
-## Step 3: Push Your Code
+## 2. One-command setup
 
 ```bash
-# Make sure you're on main branch
-git checkout main
-
-# Push to GitHub
-git push -u origin main
+./scripts/quick-start.sh
 ```
 
-**When prompted:**
-- **Username:** `arukurmi`
-- **Password:** Your Personal Access Token (NOT your GitHub password)
+This builds the Docker image, starts the server container on port 5959, installs the `logzilla` command to `/usr/local/bin`, and prints usage examples. When it finishes, open **http://localhost:5959**.
 
-## Step 4: Push Other Branches (Optional)
+## 3. Manual setup (what the script does)
+
+### Build and start the server
 
 ```bash
-# Push specs-status branch
-git checkout specs-status
-git push -u origin specs-status
-
-# Go back to main
-git checkout main
+docker build -f Dockerfile.logzilla -t repo/logzilla .
+docker run -d --name logzilla-server -p 5959:5959 -v ~/Documents:/data repo/logzilla
 ```
 
-## Troubleshooting
+The SQLite database lands at `~/Documents/logzilla.db`, so your history survives container restarts.
 
-### If you get "HTTP 400" error:
-- Make sure you're using a Personal Access Token, not your password
-- Token must have `repo` scope
-- Create new token at: https://github.com/settings/tokens
+### Install the logzilla command
 
-### If you get network errors:
-- Check internet connection
-- Try: `ping github.com`
-- Wait a minute and retry
+```bash
+./scripts/build-logzilla.sh
+```
 
-### If push says "Everything up-to-date" but repo is empty:
-- The remote might be pointing to wrong place
-- Run: `git remote remove origin` and add it again
-- Then try push again
+This writes a small wrapper to `/usr/local/bin/logzilla` (it will ask for sudo). The wrapper generates a fluent-bit config named after your current directory and streams whatever you run through it.
+
+## 4. Feed it logs
+
+From any project directory, either prefix your command:
+
+```bash
+cd my-node-service
+logzilla npm run start
+```
+
+or pipe into it:
+
+```bash
+go run main.go | logzilla
+python app.py | logzilla
+./my-app | logzilla
+```
+
+The service name in the console is the directory name — `cd payments-service && logzilla npm start` shows up as `payments-service`.
+
+## 5. Using the console
+
+Open **http://localhost:5959**.
+
+- **Search bar** — supports structured queries: `key:"value"` exact match, `key:*value*` contains, `-key:value` exclude, bare `"text"` searches all fields. Hover the ⓘ icon for the cheat sheet.
+- **Level / Service dropdowns** — one-click narrowing; the lists populate from whatever you've ingested.
+- **Time range** — presets from 15 minutes to 30 days, plus a custom range picker.
+- **Log volume graph** — toggle with the "Show Graph" checkbox.
+- **Row click** — opens the detail drawer; every attribute can be copied or turned into a filter with one click.
+
+![Log detail drawer](screenshots/log-details.png)
+
+- **Dark / light mode** — the sun/moon button in the header. Your choice is remembered in the browser.
+
+![Log-zilla console (light mode)](screenshots/dashboard-light.png)
+
+- **Clear** — the red button purges logs by service and/or age (older than 7/14/30 days, or everything).
+
+## 6. Configuration reference
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PORT` | `5959` | Console port |
+| `DB_PATH` | `~/Documents/logzilla.db` | SQLite file location |
+| `LOGZILLA_HOST` | `localhost` | Where the `logzilla` command sends logs |
+| `LOGZILLA_PORT` | `5959` | Port the `logzilla` command targets |
+
+Custom port and database:
+
+```bash
+docker run -d --name logzilla-server -p 8080:8080 \
+  -v /path/to/data:/data \
+  repo/logzilla --port 8080 --db /data/logs.db
+```
+
+## 7. Day-to-day management
+
+```bash
+docker logs logzilla-server      # server logs
+docker stop logzilla-server      # stop
+docker start logzilla-server     # start again (data persists)
+docker restart logzilla-server   # restart
+docker rm logzilla-server        # remove (volume data survives)
+```
+
+## 8. Troubleshooting
+
+**Console won't load** — `docker ps` to confirm the container is up, then `docker logs logzilla-server`.
+
+**`logzilla: command not found`** — re-run `./scripts/build-logzilla.sh`; it must complete the sudo step.
+
+**Logs don't appear** — confirm fluent-bit is installed (`fluent-bit --version`) and that the server answers: `curl http://localhost:5959/api/otel?limit=1`.
+
+**Port already in use** — start the container with a different `-p` mapping and `--port` flag, and set `LOGZILLA_PORT` accordingly before using the `logzilla` command.

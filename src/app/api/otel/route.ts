@@ -1,51 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { databaseService } from '@/lib/database';
+import { eventVault } from '@/core/eventVault';
 
 // POST endpoint to receive logs
 export async function POST(request: NextRequest) {
   try {
-    // return NextResponse.json({
-    //   success: true,
-    //   message: 'Logs received successfully'
-    // }, { status: 200 });
-    // Parse the request body
     let body = await request.json();
-    // Get headers from the request
     const headers = request.headers;
 
-    // Handle different log formats
-    let logsToProcess = [];
+    // Normalize the payload into a list of events
+    let incoming = [];
 
-    // Check if the body is an array or a single log entry
     if (Array.isArray(body)) {
-      body = body.map((log) => {
-        if (log.meta && typeof log.meta === 'object') {
-          const meta = log.meta;
-          delete log.meta;
-          log = { ...log, ...meta };
+      body = body.map((event) => {
+        if (event.meta && typeof event.meta === 'object') {
+          const meta = event.meta;
+          delete event.meta;
+          event = { ...event, ...meta };
         }
-        return log;
+        return event;
       });
-      logsToProcess = body;
+      incoming = body;
     } else {
       if (body.meta && typeof body.meta === 'object') {
         const meta = body.meta;
         delete body.meta;
         body = { ...body, ...meta };
       }
-      logsToProcess = [body];
+      incoming = [body];
     }
 
-    // Process each log entry
+    // Persist every event
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const processedLogs = logsToProcess.map((log: any) =>
-      databaseService.addLog(log, headers),
+    const stored = incoming.map((event: any) =>
+      eventVault.store(event, headers),
     );
 
     return NextResponse.json(
       {
         success: true,
-        count: processedLogs.length,
+        count: stored.length,
       },
       { status: 200 },
     );
@@ -66,7 +59,6 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
 
-    // Get query parameters for filtering
     const query = searchParams.get('query') || '';
     const level = searchParams.get('level') || '';
     const service = searchParams.get('service') || '';
@@ -75,7 +67,6 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '1000');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    // Build filters object
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filters: any = {};
     if (query) filters.query = query;
@@ -86,13 +77,12 @@ export async function GET(request: NextRequest) {
     if (limit) filters.limit = limit;
     if (offset) filters.offset = offset;
 
-    // Get logs from database
-    const logs = databaseService.getLogs(filters);
-    const totalCount = databaseService.getLogCount(filters);
+    const logs = eventVault.fetch(filters);
+    const totalCount = eventVault.count(filters);
 
-    // Get unique levels and services for filter options
-    const levels = databaseService.getLevels();
-    const services = databaseService.getServices();
+    // Distinct levels and services drive the filter dropdowns
+    const levels = eventVault.levels();
+    const services = eventVault.services();
 
     return NextResponse.json(
       {
@@ -124,7 +114,7 @@ export async function DELETE(request: NextRequest) {
     const service = searchParams.get('service') || undefined;
     const endDate = searchParams.get('endDate') || undefined;
 
-    databaseService.clearLogs({ service, endDate });
+    eventVault.purge({ service, endDate });
     return NextResponse.json(
       {
         success: true,

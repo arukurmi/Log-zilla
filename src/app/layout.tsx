@@ -1,22 +1,26 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Space_Grotesk, JetBrains_Mono } from 'next/font/google';
+import ThemeProvider from '@/ui/ThemeProvider';
 import './globals.css';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const grotesk = Space_Grotesk({
+  variable: '--font-grotesk',
   subsets: ['latin'],
 });
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const jetbrains = JetBrains_Mono({
+  variable: '--font-jetbrains',
   subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  title: 'Log-zilla - Log Viewer',
+  title: 'Log-zilla — Tame your logs',
   description:
-    'A real-time log viewer for OpenTelemetry logs in New Relic style',
+    'Log-zilla is a real-time log console for everything running on your machine. Pipe any process into it and watch the stream.',
 };
+
+// Applies the persisted theme before first paint so there is no flash
+const themeBootScript = `(function(){try{var t=localStorage.getItem('logzilla-theme');document.documentElement.dataset.theme=(t==='light'||t==='dark')?t:'dark';}catch(e){document.documentElement.dataset.theme='dark';}})();`;
 
 export default function RootLayout({
   children,
@@ -24,11 +28,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} bg-[#151515] text-sm text-white antialiased`}
+        className={`${grotesk.variable} ${jetbrains.variable} bg-[var(--zl-bg)] text-sm text-[var(--zl-text)] antialiased`}
       >
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

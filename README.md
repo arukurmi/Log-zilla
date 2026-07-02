@@ -1,32 +1,37 @@
 <div align="center">
 <p align="center">
-  <img src="public/favicon.svg" width="150" height="150">
+  <img src="public/favicon.svg" width="140" height="140" alt="Log-zilla logo">
 </p>
 
-<h1 align="center"><b>Log-zilla</b></h1>
-<h4 align="center" style="color: #666666; font-weight: normal;">New Relic for localhost</h4>
+<h1 align="center"><b>LOG-ZILLA</b></h1>
+<h4 align="center" style="color: #666666; font-weight: normal;">The kaiju that eats your localhost logs</h4>
 
 <p align="center">
   <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/docker-ready-blue.svg" alt="Docker"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"></a>
-  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/next.js-14.0-black.svg" alt="Next.js"></a>
+  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/next.js-15-black.svg" alt="Next.js"></a>
   <a href="http://makeapullrequest.com"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"></a>
 </p>
 
-<p align="center">Beautiful log monitoring for any application, powered by fluent-bit and Next.js.</p>
+<p align="center">Pipe any process into <code>logzilla</code> and watch every service on your machine stream into one console.</p>
 </div>
 
-![Log-zilla Dashboard](https://github.com/user-attachments/assets/271644cc-5e8b-404e-8d8f-a51c577b902f)
+![Log-zilla console (dark mode)](screenshots/dashboard-dark.png)
+
+## Why Log-zilla?
+
+Running four microservices locally means four terminal tabs, four scrollback buffers, and zero searchability. Log-zilla swallows all of them: prefix any command with `logzilla` (or pipe into it) and the output lands in a single searchable, filterable, persistent console at `http://localhost:5959`.
 
 ## Features
 
-- 🚀 **Zero Configuration**: Just pipe your logs to `logzilla`
-- 🏷️ **Auto Service Detection**: Service name from directory name
-- 🌐 **Beautiful Web UI**: Modern, responsive log viewer
-- 🔍 **Smart Search**: Filter logs by level, service, message content
-- 📊 **Real-time Updates**: See logs as they arrive
-- 💾 **Persistent Storage**: SQLite database for log history
-- 🐳 **Docker Native**: Everything runs in containers
+- 🦖 **Zero configuration** — just pipe your logs to `logzilla`
+- 🏷️ **Auto service detection** — service name is taken from the directory you run in
+- 🌗 **Dark & light mode** — toggle from the header, remembered across sessions
+- 🔍 **Structured search** — `key:"value"`, wildcards, negation, free text
+- 📈 **Log volume graph** — spot bursts and gaps at a glance
+- 📊 **Real-time updates** — the console polls as logs arrive
+- 💾 **Persistent storage** — SQLite keeps your history between restarts
+- 🐳 **Docker native** — the whole server runs in one container
 
 ## Quick Start
 
@@ -96,12 +101,22 @@ cd any-service
 
 ### Visit the web interface on http://localhost:5959
 
+## The Console
+
+Click any row to open the detail drawer — every attribute is one click away from becoming a filter, and one click away from your clipboard:
+
+![Log detail drawer](screenshots/log-details.png)
+
+Prefer daylight? Hit the sun/moon toggle in the header:
+
+![Log-zilla console (light mode)](screenshots/dashboard-light.png)
+
 ## How It Works
 
-1. **Service Detection**: The `logzilla` command automatically detects your service name from the current directory
-2. **Dynamic Configuration**: It creates a fluent-bit config file with your service name
-3. **Log Processing**: Fluent-bit processes your logs and sends them to the logzilla server
-4. **Web Interface**: View and analyze your logs at http://localhost:5959
+1. **Service detection**: the `logzilla` command reads your service name from the current directory
+2. **Dynamic configuration**: it generates a fluent-bit config for that service on the fly
+3. **Ingestion**: fluent-bit ships each line to the Log-zilla server over HTTP
+4. **Console**: the web UI at http://localhost:5959 queries the SQLite-backed event vault
 
 ## Configuration
 
@@ -184,4 +199,4 @@ You can override the service name by setting the directory name or using a custo
 
 ---
 
-**Need help?** Check the logs with `docker logs logzilla-server` or visit the web interface at http://localhost:5959
+**Need help?** Check the logs with `docker logs logzilla-server` or visit the console at http://localhost:5959

@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X } from 'lucide-react';
 
-const NEW_RELIC_GREEN = '#22c55e';
-
-interface LogFilterProps {
+interface QueryBarProps {
   onFilterChange: (filters: {
     search: string;
     level: string;
@@ -14,7 +12,7 @@ interface LogFilterProps {
   search?: string;
 }
 
-const LogFilter: React.FC<LogFilterProps> = (props) => {
+const QueryBar: React.FC<QueryBarProps> = (props) => {
   const { onFilterChange, levels, services } = props;
   const [search, setSearch] = useState('');
   const [level, setLevel] = useState('');
@@ -44,6 +42,7 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
     if (search !== props.search && props.search !== undefined) {
       setSearch(props.search);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.search]);
 
   const handleLevelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -66,16 +65,16 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
   };
 
   return (
-    <div className="border-b border-[#333333] bg-[#151515] p-2">
+    <div className="border-b border-[var(--zl-border)] bg-[var(--zl-bg)] p-2">
       <div className="flex flex-wrap items-center gap-2">
         <div className="mb-2 w-full flex-grow">
           <div className="relative flex">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-              <Search size={16} color={'#0e74df'} />
+              <Search size={16} className="text-[var(--zl-key)]" />
             </div>
             <input
               type="text"
-              className="flex-grow rounded-l border border-[#333333] bg-[#222222] py-2 pr-10 pl-10 text-sm text-gray-200 focus:outline-none"
+              className="flex-grow rounded-l border border-[var(--zl-border)] bg-[var(--zl-surface)] py-2 pr-10 pl-10 font-mono text-sm text-[var(--zl-text)] focus:outline-none"
               placeholder='Search (e.g., key:"value", key:*value*, -key:value, "text")'
               value={search}
               onChange={handleSearchChange}
@@ -85,7 +84,7 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
               <div className="absolute inset-y-0 right-28 flex items-center pr-3">
                 <button
                   onClick={clearSearch}
-                  className="text-gray-400 hover:text-white"
+                  className="text-[var(--zl-muted)] hover:text-[var(--zl-text)]"
                   title="Clear search"
                 >
                   <X size={16} />
@@ -94,15 +93,14 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
             )}
             <button
               onClick={handleSearchClick}
-              className="cursor-pointer rounded-r px-4 py-2 text-sm text-white transition-colors hover:bg-[#36a3ff] hover:text-white focus:ring-1 focus:outline-none"
-              style={{ backgroundColor: '#0e74df', borderColor: '#0e74df' }}
+              className="cursor-pointer rounded-r bg-[var(--zl-accent)] px-4 py-2 text-sm text-white transition-colors hover:bg-[var(--zl-accent-strong)] focus:ring-1 focus:outline-none"
             >
               Search
             </button>
             <div className="absolute inset-y-0 right-20 flex items-center pr-3">
               <div className="group relative">
                 <svg
-                  className="h-4 w-4 cursor-help text-gray-400"
+                  className="h-4 w-4 cursor-help text-[var(--zl-muted)]"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -114,7 +112,7 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
                     d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                <div className="absolute top-full right-0 z-10 mt-2 hidden w-64 rounded bg-[#333333] p-2 text-xs text-gray-200 shadow-lg group-hover:block">
+                <div className="absolute top-full right-0 z-10 mt-2 hidden w-64 rounded border border-[var(--zl-border)] bg-[var(--zl-surface)] p-2 text-xs text-[var(--zl-text)] shadow-lg group-hover:block">
                   <p className="mb-1 font-bold">Search Syntax:</p>
                   <ul className="list-disc space-y-1 pl-4">
                     <li>
@@ -142,9 +140,9 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
 
         <div className="flex w-full flex-wrap items-center gap-2">
           <div className="flex items-center">
-            <span className="mr-1 text-xs text-gray-400">Level:</span>
+            <span className="mr-1 text-xs text-[var(--zl-muted)]">Level:</span>
             <select
-              className="rounded border border-[#333333] bg-[#222222] px-2 py-1 text-xs text-gray-200 focus:ring-1 focus:ring-[#00b9ff] focus:outline-none"
+              className="rounded border border-[var(--zl-border)] bg-[var(--zl-surface)] px-2 py-1 text-xs text-[var(--zl-text)] focus:ring-1 focus:ring-[var(--zl-accent)] focus:outline-none"
               value={level}
               onChange={handleLevelChange}
             >
@@ -158,9 +156,11 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
           </div>
 
           <div className="flex items-center">
-            <span className="mr-1 text-xs text-gray-400">Service:</span>
+            <span className="mr-1 text-xs text-[var(--zl-muted)]">
+              Service:
+            </span>
             <select
-              className="rounded border border-[#333333] bg-[#222222] px-2 py-1 text-xs text-gray-200 focus:ring-1 focus:ring-[#00b9ff] focus:outline-none"
+              className="rounded border border-[var(--zl-border)] bg-[var(--zl-surface)] px-2 py-1 text-xs text-[var(--zl-text)] focus:ring-1 focus:ring-[var(--zl-accent)] focus:outline-none"
               value={service}
               onChange={handleServiceChange}
             >
@@ -175,7 +175,7 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
 
           <div>
             <button
-              className="rounded bg-[#333333] px-2 py-1 text-xs text-gray-200 transition-colors hover:bg-[#444444] focus:ring-1 focus:ring-[#00b9ff] focus:outline-none"
+              className="rounded border border-[var(--zl-border)] bg-[var(--zl-surface-2)] px-2 py-1 text-xs text-[var(--zl-text)] transition-colors hover:bg-[var(--zl-border)] focus:ring-1 focus:ring-[var(--zl-accent)] focus:outline-none"
               onClick={clearFilters}
             >
               Clear
@@ -187,4 +187,4 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
   );
 };
 
-export default LogFilter;
+export default QueryBar;

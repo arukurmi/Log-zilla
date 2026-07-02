@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import { databaseService } from '@/lib/database';
+import { eventVault } from '@/core/eventVault';
 
 export async function GET() {
   try {
-    const dbSize = databaseService.getDbSize();
+    const size = eventVault.sizeOnDisk();
     return NextResponse.json(
       {
         success: true,
-        size: dbSize,
+        size: size,
       },
       { status: 200 },
     );

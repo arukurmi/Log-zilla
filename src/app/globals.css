@@ -1,45 +1,75 @@
 @import 'tailwindcss';
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Log-zilla theme tokens — "Kaiju console"
+   Dark is the default habitat; light is the daylight raid. */
+:root,
+:root[data-theme='dark'] {
+  --zl-bg: #0c0e16;
+  --zl-surface: #151827;
+  --zl-surface-2: #1b1f31;
+  --zl-border: #262b40;
+  --zl-text: #e7e9f4;
+  --zl-muted: #8a91ab;
+  --zl-accent: #8b5cf6;
+  --zl-accent-strong: #7c3aed;
+  --zl-key: #38bdf8;
+  --zl-value: #c4b5fd;
+  --zl-danger: #f87171;
+  --zl-danger-strong: #dc2626;
+  --zl-ok: #34d399;
+  --zl-scroll-track: #12141f;
+  --zl-scroll-thumb: #262b40;
+}
+
+:root[data-theme='light'] {
+  --zl-bg: #f4f5fa;
+  --zl-surface: #ffffff;
+  --zl-surface-2: #eef0f8;
+  --zl-border: #d9dcea;
+  --zl-text: #1b1f2e;
+  --zl-muted: #5a6072;
+  --zl-accent: #6d28d9;
+  --zl-accent-strong: #5b21b6;
+  --zl-key: #0284c7;
+  --zl-value: #6d28d9;
+  --zl-danger: #dc2626;
+  --zl-danger-strong: #b91c1c;
+  --zl-ok: #059669;
+  --zl-scroll-track: #e6e8f2;
+  --zl-scroll-thumb: #c3c8dd;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-background: var(--zl-bg);
+  --color-foreground: var(--zl-text);
+  --font-sans: var(--font-grotesk);
+  --font-mono: var(--font-jetbrains);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--zl-bg);
+  color: var(--zl-text);
+  font-family: var(--font-grotesk), system-ui, sans-serif;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
-/* Custom dark scrollbar styles */
+/* Themed scrollbars */
 ::-webkit-scrollbar {
   width: 10px;
-  background: #181818;
+  background: var(--zl-scroll-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: #232323;
+  background: var(--zl-scroll-thumb);
   border-radius: 8px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #333333;
+  background: var(--zl-accent);
 }
 
 /* Firefox */
 html {
-  scrollbar-color: #232323 #181818;
+  scrollbar-color: var(--zl-scroll-thumb) var(--zl-scroll-track);
   scrollbar-width: thin;
 }

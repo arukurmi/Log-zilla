@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import LogFilter from './LogFilter';
-import { LogEntry as LogEntryType } from '@/lib/logStore';
+import QueryBar from './QueryBar';
+import ZillaMark from './ZillaMark';
+import { useTheme } from './ThemeProvider';
+import { StreamEvent } from '@/core/eventBuffer';
 import {
   LineChart,
   Line,
@@ -14,19 +16,44 @@ import {
 } from 'recharts';
 import { DatePicker, ConfigProvider, theme, Modal } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
-import { FilterIcon, Copy, Check } from 'lucide-react';
+import { FilterIcon, Copy, Check, Sun, Moon } from 'lucide-react';
 
-const NEW_RELIC_GREEN = '#22c55e'; // A nice green similar to New Relic's
-const NEW_RELIC_GREEN_DARK = '#16a34a';
+// Per-theme colors for the pieces that can't read CSS variables
+// (Ant Design tokens and recharts props need literal values)
+const PALETTE = {
+  dark: {
+    accent: '#8b5cf6',
+    key: '#38bdf8',
+    value: '#c4b5fd',
+    surface: '#151827',
+    border: '#262b40',
+    text: '#e7e9f4',
+    axis: '#8a91ab',
+    grid: '#262b40',
+  },
+  light: {
+    accent: '#6d28d9',
+    key: '#0284c7',
+    value: '#6d28d9',
+    surface: '#ffffff',
+    border: '#d9dcea',
+    text: '#1b1f2e',
+    axis: '#5a6072',
+    grid: '#d9dcea',
+  },
+};
 
-const LogViewer: React.FC = () => {
-  const [logs, setLogs] = useState<LogEntryType[]>([]);
-  const [filteredLogs, setFilteredLogs] = useState<LogEntryType[]>([]);
-  const [dbSize, setDbSize] = useState<number>(0);
-  const [isClearModalVisible, setIsClearModalVisible] =
+const StreamConsole: React.FC = () => {
+  const { mode, toggle } = useTheme();
+  const colors = PALETTE[mode];
+
+  const [events, setEvents] = useState<StreamEvent[]>([]);
+  const [visibleEvents, setVisibleEvents] = useState<StreamEvent[]>([]);
+  const [vaultSize, setVaultSize] = useState<number>(0);
+  const [isPurgeModalVisible, setIsPurgeModalVisible] =
     useState<boolean>(false);
-  const [clearService, setClearService] = useState<string>('');
-  const [clearTimeframe, setClearTimeframe] = useState<string>('7d');
+  const [purgeService, setPurgeService] = useState<string>('');
+  const [purgeTimeframe, setPurgeTimeframe] = useState<string>('7d');
 
   const [isConnected, setIsConnected] = useState(true);
   const [autoScroll, setAutoScroll] = useState(false);
@@ -45,10 +72,11 @@ const LogViewer: React.FC = () => {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showCustomDate, setShowCustomDate] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const flattenObject = (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     obj: any,
     parentKey = '',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     res: { [key: string]: any } = {},
   ) => {
     for (const key in obj) {
@@ -159,13 +187,13 @@ const LogViewer: React.FC = () => {
     'message',
   ]);
   const availableColumns = ['timestamp', 'service', 'level', 'message'];
-  const [selectedLog, setSelectedLog] = useState<LogEntryType | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<StreamEvent | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const logsEndRef = useRef<HTMLDivElement>(null);
+  const streamEndRef = useRef<HTMLDivElement>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchLogs = async (searchFilters?: {
+  const fetchEvents = async (searchFilters?: {
     search?: string;
     level?: string;
     service?: string;
@@ -194,12 +222,12 @@ const LogViewer: React.FC = () => {
 
       const data = await response.json();
       if (data.success && data.logs) {
-        const sortedLogs = [...data.logs].sort(
+        const sortedEvents = [...data.logs].sort(
           (a, b) =>
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
         );
-        setLogs(sortedLogs);
-        setFilteredLogs(sortedLogs);
+        setEvents(sortedEvents);
+        setVisibleEvents(sortedEvents);
 
         if (data.levels) setLevels(data.levels);
         if (data.services) setServices(data.services);
@@ -212,12 +240,12 @@ const LogViewer: React.FC = () => {
     }
   };
 
-  const fetchDbSize = async () => {
+  const fetchVaultSize = async () => {
     try {
       const response = await fetch('/api/db-size');
       const data = await response.json();
       if (data.success) {
-        setDbSize(data.size);
+        setVaultSize(data.size);
       }
     } catch (error) {
       console.error('Error fetching db size:', error);
@@ -237,8 +265,8 @@ const LogViewer: React.FC = () => {
       startDate: startDate.toISOString(),
       endDate: now.toISOString(),
     };
-    fetchLogs(initialFilters);
-    fetchDbSize();
+    fetchEvents(initialFilters);
+    fetchVaultSize();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -256,7 +284,7 @@ const LogViewer: React.FC = () => {
           ...filters,
           ...currentDateValues,
         };
-        fetchLogs(currentFilters);
+        fetchEvents(currentFilters);
       }, 3000);
     }
 
@@ -268,18 +296,18 @@ const LogViewer: React.FC = () => {
   }, [isPolling, filters, getDateRangeValues]);
 
   useEffect(() => {
-    if (autoScroll && logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (autoScroll && streamEndRef.current) {
+      streamEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [filteredLogs, autoScroll]);
+  }, [visibleEvents, autoScroll]);
 
-  const openLogDrawer = (log: LogEntryType) => {
-    setSelectedLog(log);
+  const openEventDrawer = (event: StreamEvent) => {
+    setSelectedEvent(event);
     setDrawerOpen(true);
   };
 
   const closeDrawer = () => {
-    setSelectedLog(null);
+    setSelectedEvent(null);
     setDrawerOpen(false);
   };
 
@@ -310,6 +338,7 @@ const LogViewer: React.FC = () => {
     closeDrawer();
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const copyToClipboard = (key: string, value: any) => {
     const textToCopy =
       typeof value === 'object' && value !== null
@@ -342,7 +371,7 @@ const LogViewer: React.FC = () => {
       endDate: combinedFilters.endDate,
     });
 
-    fetchLogs(combinedFilters);
+    fetchEvents(combinedFilters);
   };
 
   const handleDateRangeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -412,7 +441,7 @@ const LogViewer: React.FC = () => {
         endDate: combinedFilters.endDate,
       });
 
-      fetchLogs(combinedFilters);
+      fetchEvents(combinedFilters);
     }
   };
 
@@ -440,34 +469,34 @@ const LogViewer: React.FC = () => {
           endDate: combinedFilters.endDate,
         });
 
-        fetchLogs(combinedFilters);
+        fetchEvents(combinedFilters);
       }
     }
   };
 
-  const showClearModal = () => {
-    setIsClearModalVisible(true);
+  const showPurgeModal = () => {
+    setIsPurgeModalVisible(true);
   };
 
-  const handleClearCancel = () => {
-    setIsClearModalVisible(false);
+  const handlePurgeCancel = () => {
+    setIsPurgeModalVisible(false);
   };
 
-  const handleClearOk = async () => {
+  const handlePurgeOk = async () => {
     try {
       const params = new URLSearchParams();
-      if (clearService) {
-        params.append('service', clearService);
+      if (purgeService) {
+        params.append('service', purgeService);
       }
 
-      if (clearTimeframe !== 'all') {
+      if (purgeTimeframe !== 'all') {
         const now = dayjs();
         let endDate;
-        if (clearTimeframe === '7d') {
+        if (purgeTimeframe === '7d') {
           endDate = now.subtract(7, 'day');
-        } else if (clearTimeframe === '14d') {
+        } else if (purgeTimeframe === '14d') {
           endDate = now.subtract(14, 'day');
-        } else if (clearTimeframe === '30d') {
+        } else if (purgeTimeframe === '30d') {
           endDate = now.subtract(30, 'day');
         }
         if (endDate) {
@@ -477,81 +506,49 @@ const LogViewer: React.FC = () => {
 
       await fetch(`/api/otel?${params.toString()}`, { method: 'DELETE' });
 
-      // Refetch logs and db size
+      // Refetch events and vault size
       const dateValues = getDateRangeValues();
       const combinedFilters = {
         ...filters,
         dateRange,
         ...dateValues,
       };
-      fetchLogs(combinedFilters);
-      fetchDbSize();
+      fetchEvents(combinedFilters);
+      fetchVaultSize();
     } catch (error) {
       console.error('Error clearing logs:', error);
     } finally {
-      setIsClearModalVisible(false);
+      setIsPurgeModalVisible(false);
     }
   };
 
+  const antdTheme = {
+    algorithm: mode === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm,
+    token: {
+      colorPrimary: colors.accent,
+      colorBgBase: colors.surface,
+      colorTextBase: colors.text,
+      colorBorder: colors.border,
+    },
+  };
+
   return (
-    <div className="flex h-screen flex-col bg-[#151515] font-sans text-white">
-      <header className="flex items-center justify-between border-b border-[#333333] bg-[#151515] p-2">
-        <div className="flex items-center">
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 40 40"
-            className="mr-1"
-            fill="none"
-          >
-            <defs>
-              <filter
-                id="glow"
-                x="-10"
-                y="-10"
-                width="60"
-                height="60"
-                filterUnits="userSpaceOnUse"
-              >
-                <feGaussianBlur stdDeviation="5" result="coloredBlur" />
-                <feMerge>
-                  <feMergeNode in="coloredBlur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
-            <circle
-              cx="20"
-              cy="20"
-              r="10"
-              fill="none"
-              stroke="#22c55e"
-              strokeWidth="4"
-              filter="url(#glow)"
-            />
-            <circle
-              cx="20"
-              cy="20"
-              r="14"
-              fill="none"
-              stroke="rgb(34,197,94)"
-              strokeWidth="2"
-              opacity="0.3"
-              filter="url(#glow)"
-            />
-          </svg>
-          <h1 className="text-lg font-bold" style={{ color: NEW_RELIC_GREEN }}>
-            Log-zilla
+    <div className="flex h-screen flex-col bg-[var(--zl-bg)] font-sans text-[var(--zl-text)]">
+      <header className="flex items-center justify-between border-b border-[var(--zl-border)] bg-[var(--zl-bg)] p-2">
+        <div className="flex items-center gap-2">
+          <ZillaMark size={26} />
+          <h1 className="text-lg font-bold tracking-wide text-[var(--zl-accent)]">
+            LOG-ZILLA
           </h1>
         </div>
         <div className="flex items-center space-x-3">
-          <div className="ml-4 text-xs text-gray-400">
+          <div className="ml-4 text-xs text-[var(--zl-muted)]">
             DB Size:{' '}
-            {dbSize ? (dbSize / 1024 / 1024).toFixed(2) + ' MB' : '...'}
+            {vaultSize ? (vaultSize / 1024 / 1024).toFixed(2) + ' MB' : '...'}
           </div>
           <div className="flex items-center gap-2">
             <select
-              className="min-w-[140px] rounded border border-[#333333] bg-[#222222] px-3 py-1.5 text-sm text-gray-200 focus:ring-1 focus:ring-[#00b9ff] focus:outline-none"
+              className="min-w-[140px] rounded border border-[var(--zl-border)] bg-[var(--zl-surface)] px-3 py-1.5 text-sm text-[var(--zl-text)] focus:ring-1 focus:ring-[var(--zl-accent)] focus:outline-none"
               value={dateRange}
               onChange={handleDateRangeChange}
             >
@@ -563,17 +560,7 @@ const LogViewer: React.FC = () => {
             </select>
 
             {showCustomDate && (
-              <ConfigProvider
-                theme={{
-                  algorithm: theme.darkAlgorithm,
-                  token: {
-                    colorPrimary: NEW_RELIC_GREEN,
-                    colorBgBase: '#222222',
-                    colorTextBase: '#e5e7eb',
-                    colorBorder: '#333333',
-                  },
-                }}
-              >
+              <ConfigProvider theme={antdTheme}>
                 <DatePicker
                   showTime={{ format: 'HH:mm' }}
                   format="MMM D, YYYY HH:mm"
@@ -628,15 +615,15 @@ const LogViewer: React.FC = () => {
             )}
           </div>
 
-          <div className="h-4 w-px bg-[#333333]"></div>
+          <div className="h-4 w-px bg-[var(--zl-border)]"></div>
 
           <div className="flex items-center">
             <span
               className={`mr-1 h-2 w-2 rounded-full ${
-                isConnected ? 'bg-[#13ba00]' : 'bg-[#ff0000]'
+                isConnected ? 'bg-[var(--zl-ok)]' : 'bg-[var(--zl-danger)]'
               }`}
             ></span>
-            <span className="text-xs text-gray-300">
+            <span className="text-xs text-[var(--zl-muted)]">
               {isConnected ? 'Connected' : 'Disconnected'}
             </span>
           </div>
@@ -646,9 +633,9 @@ const LogViewer: React.FC = () => {
               id="autoScroll"
               checked={autoScroll}
               onChange={() => setAutoScroll(!autoScroll)}
-              className="mr-1 h-3 w-3"
+              className="mr-1 h-3 w-3 accent-[var(--zl-accent)]"
             />
-            <label htmlFor="autoScroll" className="text-gray-300">
+            <label htmlFor="autoScroll" className="text-[var(--zl-muted)]">
               Auto-scroll
             </label>
           </div>
@@ -658,9 +645,9 @@ const LogViewer: React.FC = () => {
               id="polling"
               checked={isPolling}
               onChange={() => setIsPolling(!isPolling)}
-              className="mr-1 h-3 w-3"
+              className="mr-1 h-3 w-3 accent-[var(--zl-accent)]"
             />
-            <label htmlFor="polling" className="text-gray-300">
+            <label htmlFor="polling" className="text-[var(--zl-muted)]">
               Auto-refresh
             </label>
           </div>
@@ -670,15 +657,22 @@ const LogViewer: React.FC = () => {
               id="showGraph"
               checked={showGraph}
               onChange={() => setShowGraph(!showGraph)}
-              className="mr-1 h-3 w-3"
+              className="mr-1 h-3 w-3 accent-[var(--zl-accent)]"
             />
-            <label htmlFor="showGraph" className="text-gray-300">
+            <label htmlFor="showGraph" className="text-[var(--zl-muted)]">
               Show Graph
             </label>
           </div>
           <button
-            onClick={showClearModal}
-            className="rounded bg-[#ff5555] px-2 py-1 text-xs transition-colors hover:cursor-pointer hover:bg-[#d13b3b]"
+            onClick={toggle}
+            className="rounded border border-[var(--zl-border)] bg-[var(--zl-surface)] p-1.5 text-[var(--zl-muted)] transition-colors hover:cursor-pointer hover:text-[var(--zl-accent)]"
+            title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {mode === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+          </button>
+          <button
+            onClick={showPurgeModal}
+            className="rounded bg-[var(--zl-danger)] px-2 py-1 text-xs text-white transition-colors hover:cursor-pointer hover:bg-[var(--zl-danger-strong)]"
           >
             Clear
           </button>
@@ -686,15 +680,15 @@ const LogViewer: React.FC = () => {
       </header>
 
       {showGraph && (
-        <div className="border-b border-[#333333] bg-[#151515] p-2">
-          <div className="mb-1 text-xs text-gray-400">Log Volume</div>
+        <div className="border-b border-[var(--zl-border)] bg-[var(--zl-bg)] p-2">
+          <div className="mb-1 text-xs text-[var(--zl-muted)]">Log Volume</div>
           <div className="h-48 overflow-hidden">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={(() => {
-                  const logsToGraph =
-                    filteredLogs.length > 0 ? filteredLogs : [];
-                  if (logsToGraph.length === 0) return [];
+                  const eventsToGraph =
+                    visibleEvents.length > 0 ? visibleEvents : [];
+                  if (eventsToGraph.length === 0) return [];
 
                   const timeIntervals: { [key: string]: number } = {};
                   let intervalMs = 60000;
@@ -744,11 +738,11 @@ const LogViewer: React.FC = () => {
                     }
                   }
 
-                  logsToGraph.forEach((log) => {
-                    const logTime = new Date(log.timestamp).getTime();
-                    if (!isNaN(logTime)) {
+                  eventsToGraph.forEach((event) => {
+                    const eventTime = new Date(event.timestamp).getTime();
+                    if (!isNaN(eventTime)) {
                       const bucketTime =
-                        Math.floor((logTime - startTime) / intervalMs) *
+                        Math.floor((eventTime - startTime) / intervalMs) *
                           intervalMs +
                         startTime;
                       if (!isNaN(bucketTime)) {
@@ -791,32 +785,32 @@ const LogViewer: React.FC = () => {
                 })()}
                 margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#333333" />
+                <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
                 <XAxis
                   dataKey="time"
-                  stroke="#666666"
-                  tick={{ fill: '#999999', fontSize: 10 }}
-                  axisLine={{ stroke: '#333333' }}
+                  stroke={colors.axis}
+                  tick={{ fill: colors.axis, fontSize: 10 }}
+                  axisLine={{ stroke: colors.grid }}
                 />
                 <YAxis
-                  stroke="#666666"
-                  tick={{ fill: '#999999', fontSize: 10 }}
-                  axisLine={{ stroke: '#333333' }}
+                  stroke={colors.axis}
+                  tick={{ fill: colors.axis, fontSize: 10 }}
+                  axisLine={{ stroke: colors.grid }}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#151515',
+                    backgroundColor: colors.surface,
                     border: 'none',
                     borderRadius: '3px',
                     boxShadow: '0 0 10px rgba(0,0,0,0.5)',
                   }}
-                  labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
-                  itemStyle={{ color: '#ffffff' }}
+                  labelStyle={{ color: colors.text, fontWeight: 'bold' }}
+                  itemStyle={{ color: colors.text }}
                 />
                 <Line
                   type="monotone"
                   dataKey="count"
-                  stroke={NEW_RELIC_GREEN}
+                  stroke={colors.accent}
                   dot={false}
                   strokeWidth={2}
                 />
@@ -826,15 +820,15 @@ const LogViewer: React.FC = () => {
         </div>
       )}
 
-      <LogFilter
+      <QueryBar
         onFilterChange={handleFilterChange}
         levels={levels}
         services={services}
         search={filters.search}
       />
 
-      <div className="flex flex-wrap gap-2 border-b border-[#333333] bg-[#151515] p-2">
-        <div className="text-xs text-gray-400">Columns:</div>
+      <div className="flex flex-wrap gap-2 border-b border-[var(--zl-border)] bg-[var(--zl-bg)] p-2">
+        <div className="text-xs text-[var(--zl-muted)]">Columns:</div>
         {availableColumns.map((column) => (
           <div key={column} className="flex items-center text-xs">
             <input
@@ -848,9 +842,9 @@ const LogViewer: React.FC = () => {
                     : [...prev, column],
                 );
               }}
-              className="mr-1 h-3 w-3"
+              className="mr-1 h-3 w-3 accent-[var(--zl-accent)]"
             />
-            <label htmlFor={`col-${column}`} className="text-gray-300">
+            <label htmlFor={`col-${column}`} className="text-[var(--zl-muted)]">
               {column}
             </label>
           </div>
@@ -858,31 +852,33 @@ const LogViewer: React.FC = () => {
       </div>
 
       <div className="flex-grow overflow-auto">
-        {filteredLogs.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-gray-500">
-            <p className="text-sm">No logs to display.</p>
+        {visibleEvents.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-[var(--zl-muted)]">
+            <p className="text-sm">
+              No logs yet. Pipe a process into logzilla to wake the beast.
+            </p>
           </div>
         ) : (
           <table className="w-full font-mono text-xs">
-            <thead className="sticky top-0 bg-[#222222]">
+            <thead className="sticky top-0 bg-[var(--zl-surface)]">
               <tr>
                 {selectedColumns.includes('timestamp') && (
-                  <th className="p-2 text-left font-medium text-gray-400">
+                  <th className="p-2 text-left font-medium text-[var(--zl-muted)]">
                     Time
                   </th>
                 )}
                 {selectedColumns.includes('service') && (
-                  <th className="p-2 text-left font-medium text-gray-400">
+                  <th className="p-2 text-left font-medium text-[var(--zl-muted)]">
                     Service
                   </th>
                 )}
                 {selectedColumns.includes('level') && (
-                  <th className="p-2 text-left font-medium text-gray-400">
+                  <th className="p-2 text-left font-medium text-[var(--zl-muted)]">
                     Level
                   </th>
                 )}
                 {selectedColumns.includes('message') && (
-                  <th className="p-2 text-left font-medium text-gray-400">
+                  <th className="p-2 text-left font-medium text-[var(--zl-muted)]">
                     Message
                   </th>
                 )}
@@ -890,7 +886,7 @@ const LogViewer: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredLogs.map((log) => {
+              {visibleEvents.map((event) => {
                 const formatTimestamp = (timestamp: string) => {
                   try {
                     const date = new Date(timestamp);
@@ -899,6 +895,7 @@ const LogViewer: React.FC = () => {
                       '.' +
                       date.getMilliseconds().toString().padStart(3, '0')
                     );
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
                   } catch (e) {
                     return timestamp;
                   }
@@ -912,29 +909,29 @@ const LogViewer: React.FC = () => {
                     case 'warning':
                       return 'bg-yellow-500';
                     case 'info':
-                      return 'bg-blue-500';
+                      return 'bg-sky-500';
                     case 'debug':
-                      return 'bg-green-500';
+                      return 'bg-violet-500';
                     default:
                       return 'bg-gray-500';
                   }
                 };
                 return (
                   <tr
-                    key={log.id}
-                    data-selected={selectedLog?.id === log.id}
-                    className="cursor-pointer border-b border-[#333333] text-gray-300 transition-colors duration-500 hover:bg-[#222222] data-[selected=true]:bg-[#fefefe2e]"
-                    onClick={() => openLogDrawer(log)}
+                    key={event.id}
+                    data-selected={selectedEvent?.id === event.id}
+                    className="cursor-pointer border-b border-[var(--zl-border)] text-[var(--zl-text)] transition-colors duration-500 hover:bg-[var(--zl-surface)] data-[selected=true]:bg-[var(--zl-surface-2)]"
+                    onClick={() => openEventDrawer(event)}
                   >
                     {selectedColumns.includes('timestamp') && (
                       <td className="p-2 whitespace-nowrap">
-                        {formatTimestamp(log.timestamp)}
+                        {formatTimestamp(event.timestamp)}
                       </td>
                     )}
                     {selectedColumns.includes('service') && (
                       <td className="p-2">
-                        <span className="rounded bg-[#333333] px-2 py-0.5 text-gray-300">
-                          {log.service || 'unknown'}
+                        <span className="rounded bg-[var(--zl-surface-2)] px-2 py-0.5 text-[var(--zl-text)]">
+                          {event.service || 'unknown'}
                         </span>
                       </td>
                     )}
@@ -943,19 +940,21 @@ const LogViewer: React.FC = () => {
                         <div className="flex items-center">
                           <div
                             className={`mr-1 h-2 w-2 rounded-full ${getLevelColor(
-                              log.level,
+                              event.level,
                             )}`}
                           ></div>
-                          <span>{log.level}</span>
+                          <span>{event.level}</span>
                         </div>
                       </td>
                     )}
                     {selectedColumns.includes('message') && (
-                      <td className="max-w-md truncate p-2">{log.message}</td>
+                      <td className="max-w-md truncate p-2">
+                        {event.message}
+                      </td>
                     )}
                     <td className="p-2 text-right">
                       <svg
-                        className="h-3 w-3 text-gray-400"
+                        className="h-3 w-3 text-[var(--zl-muted)]"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -974,43 +973,33 @@ const LogViewer: React.FC = () => {
             </tbody>
           </table>
         )}
-        <div ref={logsEndRef} />
+        <div ref={streamEndRef} />
       </div>
 
-      <footer className="border-t border-[#333333] bg-[#151515] p-2 text-center text-xs text-gray-500">
+      <footer className="border-t border-[var(--zl-border)] bg-[var(--zl-bg)] p-2 text-center text-xs text-[var(--zl-muted)]">
         <p>
-          Displaying {filteredLogs.length} of {logs.length} logs
+          Displaying {visibleEvents.length} of {events.length} logs
         </p>
       </footer>
 
-      <ConfigProvider
-        theme={{
-          algorithm: theme.darkAlgorithm,
-          token: {
-            colorPrimary: NEW_RELIC_GREEN,
-            colorBgBase: '#222222',
-            colorTextBase: '#e5e7eb',
-            colorBorder: '#333333',
-          },
-        }}
-      >
+      <ConfigProvider theme={antdTheme}>
         <Modal
           title="Clear Logs"
-          open={isClearModalVisible}
-          onOk={handleClearOk}
-          onCancel={handleClearCancel}
+          open={isPurgeModalVisible}
+          onOk={handlePurgeOk}
+          onCancel={handlePurgeCancel}
           footer={[
             <button
               key="back"
-              onClick={handleClearCancel}
-              className="mr-2 rounded border border-[#333333] bg-[#222222] px-3 py-1.5 text-sm text-gray-200 focus:ring-1 focus:ring-[#00b9ff] focus:outline-none"
+              onClick={handlePurgeCancel}
+              className="mr-2 rounded border border-[var(--zl-border)] bg-[var(--zl-surface)] px-3 py-1.5 text-sm text-[var(--zl-text)] focus:ring-1 focus:ring-[var(--zl-accent)] focus:outline-none"
             >
               Cancel
             </button>,
             <button
               key="submit"
-              onClick={handleClearOk}
-              className="rounded bg-[#ff5555] px-3 py-1.5 text-sm text-white transition-colors hover:cursor-pointer hover:bg-[#d13b3b]"
+              onClick={handlePurgeOk}
+              className="rounded bg-[var(--zl-danger)] px-3 py-1.5 text-sm text-white transition-colors hover:cursor-pointer hover:bg-[var(--zl-danger-strong)]"
             >
               Clear
             </button>,
@@ -1018,13 +1007,13 @@ const LogViewer: React.FC = () => {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300">
+              <label className="block text-sm font-medium text-[var(--zl-muted)]">
                 Service
               </label>
               <select
-                value={clearService}
-                onChange={(e) => setClearService(e.target.value)}
-                className="mt-1 block w-full rounded border border-[#333333] bg-[#222222] px-3 py-1.5 text-sm text-gray-200 focus:ring-1 focus:ring-[#00b9ff] focus:outline-none"
+                value={purgeService}
+                onChange={(e) => setPurgeService(e.target.value)}
+                className="mt-1 block w-full rounded border border-[var(--zl-border)] bg-[var(--zl-surface)] px-3 py-1.5 text-sm text-[var(--zl-text)] focus:ring-1 focus:ring-[var(--zl-accent)] focus:outline-none"
               >
                 <option value="">All Services</option>
                 {services.map((service) => (
@@ -1035,13 +1024,13 @@ const LogViewer: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300">
+              <label className="block text-sm font-medium text-[var(--zl-muted)]">
                 Timeframe
               </label>
               <select
-                value={clearTimeframe}
-                onChange={(e) => setClearTimeframe(e.target.value)}
-                className="mt-1 block w-full rounded border border-[#333333] bg-[#222222] px-3 py-1.5 text-sm text-gray-200 focus:ring-1 focus:ring-[#00b9ff] focus:outline-none"
+                value={purgeTimeframe}
+                onChange={(e) => setPurgeTimeframe(e.target.value)}
+                className="mt-1 block w-full rounded border border-[var(--zl-border)] bg-[var(--zl-surface)] px-3 py-1.5 text-sm text-[var(--zl-text)] focus:ring-1 focus:ring-[var(--zl-accent)] focus:outline-none"
               >
                 <option value="7d">Older than 7 days</option>
                 <option value="14d">Older than 14 days</option>
@@ -1054,20 +1043,17 @@ const LogViewer: React.FC = () => {
       </ConfigProvider>
 
       <div
-        className={`fixed inset-y-0 right-0 z-10 w-1/3 overflow-auto border-l border-[#333333] bg-[#222222] font-mono shadow-lg transition-transform duration-300 ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed inset-y-0 right-0 z-10 w-1/3 overflow-auto border-l border-[var(--zl-border)] bg-[var(--zl-surface)] font-mono shadow-lg transition-transform duration-300 ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
-        {drawerOpen && selectedLog && (
+        {drawerOpen && selectedEvent && (
           <>
-            <div className="sticky top-0 flex items-center justify-between border-b border-[#333333] bg-[#222222] p-3">
-              <h3
-                className="text-sm font-semibold"
-                style={{ color: NEW_RELIC_GREEN }}
-              >
+            <div className="sticky top-0 flex items-center justify-between border-b border-[var(--zl-border)] bg-[var(--zl-surface)] p-3">
+              <h3 className="text-sm font-semibold text-[var(--zl-accent)]">
                 Log Details
               </h3>
               <button
                 onClick={closeDrawer}
-                className="text-gray-400 hover:text-white"
+                className="text-[var(--zl-muted)] hover:text-[var(--zl-text)]"
               >
                 <svg
                   className="h-5 w-5"
@@ -1085,34 +1071,31 @@ const LogViewer: React.FC = () => {
               </button>
             </div>
 
-            <div className="border-b border-[#333333] bg-[#1a1a1a] p-3">
+            <div className="border-b border-[var(--zl-border)] bg-[var(--zl-surface-2)] p-3">
               <div className="mb-2">
-                <div className="text-xs text-gray-400">Timestamp</div>
-                <div className="text-sm text-white">
-                  {new Date(selectedLog.timestamp).toLocaleString()}
+                <div className="text-xs text-[var(--zl-muted)]">Timestamp</div>
+                <div className="text-sm text-[var(--zl-text)]">
+                  {new Date(selectedEvent.timestamp).toLocaleString()}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-gray-400">Message</div>
-                <div className="text-sm break-words whitespace-pre-wrap text-white">
-                  {selectedLog.message}
+                <div className="text-xs text-[var(--zl-muted)]">Message</div>
+                <div className="text-sm break-words whitespace-pre-wrap text-[var(--zl-text)]">
+                  {selectedEvent.message}
                 </div>
               </div>
             </div>
 
             <div className="p-3">
-              <div
-                className="mb-2 flex items-center justify-between text-xs"
-                style={{ color: NEW_RELIC_GREEN }}
-              >
+              <div className="mb-2 flex items-center justify-between text-xs text-[var(--zl-accent)]">
                 <span>Attributes</span>
                 <div className="flex items-center">
                   <button
                     onClick={() => setIsFormatted(true)}
                     className={`rounded-l-md px-2 py-0.5 text-xs ${
                       isFormatted
-                        ? 'bg-green-500 text-white'
-                        : 'bg-[#333333] text-gray-300'
+                        ? 'bg-[var(--zl-accent)] text-white'
+                        : 'bg-[var(--zl-surface-2)] text-[var(--zl-muted)]'
                     }`}
                   >
                     Formatted
@@ -1121,27 +1104,27 @@ const LogViewer: React.FC = () => {
                     onClick={() => setIsFormatted(false)}
                     className={`rounded-r-md px-2 py-0.5 text-xs ${
                       !isFormatted
-                        ? 'bg-green-500 text-white'
-                        : 'bg-[#333333] text-gray-300'
+                        ? 'bg-[var(--zl-accent)] text-white'
+                        : 'bg-[var(--zl-surface-2)] text-[var(--zl-muted)]'
                     }`}
                   >
                     Unformatted
                   </button>
                 </div>
               </div>
-              <div className="space-y-1 rounded bg-[#1a1a1a] p-2">
+              <div className="space-y-1 rounded bg-[var(--zl-surface-2)] p-2">
                 {Object.entries(
                   isFormatted
                     ? flattenObject(
                         Object.fromEntries(
-                          Object.entries(selectedLog).filter(
+                          Object.entries(selectedEvent).filter(
                             ([key]) =>
                               !['id', 'timestamp', 'message'].includes(key),
                           ),
                         ),
                       )
                     : Object.fromEntries(
-                        Object.entries(selectedLog).filter(
+                        Object.entries(selectedEvent).filter(
                           ([key]) =>
                             !['id', 'timestamp', 'message'].includes(key),
                         ),
@@ -1152,10 +1135,13 @@ const LogViewer: React.FC = () => {
                     className="group flex items-start justify-between"
                   >
                     <div className="flex-grow overflow-hidden">
-                      <span className="text-xs" style={{ color: '#01b9de' }}>
+                      <span className="text-xs" style={{ color: colors.key }}>
                         {key}:{' '}
                       </span>
-                      <span className="ml-2 text-xs break-all whitespace-pre-wrap text-green-400">
+                      <span
+                        className="ml-2 text-xs break-all whitespace-pre-wrap"
+                        style={{ color: colors.value }}
+                      >
                         {typeof value === 'object' && value !== null
                           ? JSON.stringify(value)
                           : String(value)}
@@ -1164,18 +1150,18 @@ const LogViewer: React.FC = () => {
                     <div className="flex items-center opacity-0 transition-opacity group-hover:opacity-100">
                       <button
                         onClick={() => copyToClipboard(key, value)}
-                        className="rounded p-1 text-gray-400 hover:bg-[#333333] hover:text-white"
+                        className="rounded p-1 text-[var(--zl-muted)] hover:bg-[var(--zl-border)] hover:text-[var(--zl-text)]"
                         title="Copy value"
                       >
                         {copiedKey === key ? (
-                          <Check size={14} className="text-green-500" />
+                          <Check size={14} className="text-[var(--zl-ok)]" />
                         ) : (
                           <Copy size={14} />
                         )}
                       </button>
                       <button
                         onClick={() => addFilterFromDrawer(key, value)}
-                        className="rounded p-1 text-gray-400 hover:bg-[#333333] hover:text-white"
+                        className="rounded p-1 text-[var(--zl-muted)] hover:bg-[var(--zl-border)] hover:text-[var(--zl-text)]"
                         title={`Filter by ${key}`}
                       >
                         <FilterIcon size={14} />
@@ -1192,4 +1178,4 @@ const LogViewer: React.FC = () => {
   );
 };
 
-export default LogViewer;
+export default StreamConsole;
